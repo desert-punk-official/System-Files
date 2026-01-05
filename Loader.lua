@@ -1,6 +1,6 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 12.0 (Professional Polish: Slide Animation, Fixed Sound, Clean UI)
--- Features: Paste, Shake Error, Slide-Out Close, Safe Load, Anti-AFK
+-- Version: 14.0 (Final Gold: Debounce, Visual Polish, Anti-Spam)
+-- Features: Anti-Spam (Debounce), ClipsDescendants, Touch Fix, Scale Anim
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -8,7 +8,6 @@ local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local VirtualUser = game:GetService("VirtualUser") 
-local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 -- [1] CONFIGURATION
@@ -17,24 +16,22 @@ local MainUI_URL   = "https://raw.githubusercontent.com/Silent-Caliber/System-Fi
 
 local UI_CONFIG = {
     Title = "PUNK X",
-    Version = "v12.0",
-    AccentColor = Color3.fromRGB(0, 120, 255), -- Clean Electric Blue
+    Version = "v14.0",
+    AccentColor = Color3.fromRGB(0, 120, 255),
     BgColor = Color3.fromRGB(20, 20, 23),
     InputColor = Color3.fromRGB(30, 30, 35),
     DiscordColor = Color3.fromRGB(88, 101, 242),
     Font = Enum.Font.GothamBold,
     FontRegular = Enum.Font.GothamMedium,
     DiscordLink = "https://discord.gg/JxEjAtdgWD",
-    
-    -- [VERIFIED BACKGROUND ID]
     BackgroundImage = "rbxthumb://type=Asset&id=83372655709716&w=768&h=432"
 }
 
--- [SOUND CONFIG] (Fixed Error Sound)
+-- [SOUND CONFIG]
 local SOUNDS = {
     Click   = 4590657391,
     Success = 4590662766,
-    Error   = 550209561 -- Classic Error Bleep (Reliable)
+    Error   = 550209561
 }
 
 -- // SECURE PARENTING //
@@ -169,17 +166,18 @@ TweenObj(Blur, {Size = 15}, 0.5)
 -- Main Frame
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0)
+MainFrame.Size = UDim2.new(0, 0, 0, 0) -- Start Tiny
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.BackgroundColor3 = UI_CONFIG.BgColor
 MainFrame.BorderSizePixel = 0
-MainFrame.ClipsDescendants = false 
+MainFrame.ClipsDescendants = true -- [FIX] Hides messy text during animation
+MainFrame.Active = true 
 MakeDraggable(MainFrame)
 
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 16)
 local Stroke = Instance.new("UIStroke", MainFrame)
-Stroke.Color = UI_CONFIG.AccentColor -- MATCHING THEME (Clean Blue)
+Stroke.Color = UI_CONFIG.AccentColor 
 Stroke.Thickness = 1.5
 Stroke.Transparency = 1
 
@@ -194,7 +192,7 @@ BgImage.ImageColor3 = Color3.fromRGB(150, 150, 150)
 BgImage.ZIndex = 1 
 Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 16)
 
--- TITLE TEXT
+-- UI ELEMENTS
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Text = UI_CONFIG.Title
 Title.Font = UI_CONFIG.Font
@@ -269,7 +267,7 @@ KeyBox.TextSize = 14
 KeyBox.TextXAlignment = Enum.TextXAlignment.Left
 KeyBox.ZIndex = 3
 KeyBox.ClearTextOnFocus = false
-KeyBox.Text = "" -- [FIX] Ensures placeholder shows!
+KeyBox.Text = "" 
 
 local PasteBtn = Instance.new("TextButton", InputContainer)
 PasteBtn.Size = UDim2.new(0.15, 0, 0.8, 0)
@@ -323,8 +321,8 @@ StatusText.TextSize = 11
 StatusText.ZIndex = 2
 
 -- // 4. ANIMATIONS //
-TweenObj(MainFrame, {Size = UDim2.new(0, 380, 0, 240)}, 0.4) 
-TweenObj(Stroke, {Transparency = 0.5}, 0.8) -- Fade in Clean Blue Border
+TweenObj(MainFrame, {Size = UDim2.new(0.5, 0, 0.45, 0)}, 0.4) 
+TweenObj(Stroke, {Transparency = 0.5}, 0.8) 
 
 local function AddButtonEffects(btn)
     btn.MouseEnter:Connect(function() TweenObj(btn, {BackgroundTransparency = 0.2}) end)
@@ -346,12 +344,14 @@ KeyBox.FocusLost:Connect(function()
 end)
 
 -- // 5. LOGIC //
+local isChecking = false -- [DEBOUNCE]
 
 PasteBtn.MouseButton1Click:Connect(function()
     if getclipboard then
         local clip = getclipboard()
         if clip and clip ~= "" then
             KeyBox.Text = clip
+            KeyBox:ReleaseFocus() 
             PlaySound(SOUNDS.Click, 0.6)
         else
             StatusText.Text = "Clipboard Empty!"
@@ -398,6 +398,9 @@ GetKeyBtn.MouseButton1Click:Connect(function()
 end)
 
 RedeemBtn.MouseButton1Click:Connect(function()
+    if isChecking then return end -- Stop spam clicks
+    isChecking = true
+    
     StatusText.Text = "Checking..."
     StatusText.TextColor3 = Color3.fromRGB(255, 200, 50)
     
@@ -409,10 +412,9 @@ RedeemBtn.MouseButton1Click:Connect(function()
         StatusText.Text = "Success!"
         StatusText.TextColor3 = Color3.fromRGB(50, 255, 100)
         
-        -- [FIXED ANIMATION] SLIDE DOWN OFF SCREEN (Clean!)
         TweenObj(Blur, {Size = 0}, 0.5)
         TweenObj(MainFrame, {
-            Position = UDim2.new(0.5, 0, 1.5, 0) -- Drops down
+            Position = UDim2.new(0.5, 0, 1.5, 0)
         }, 0.6)
         
         task.wait(0.6)
@@ -426,6 +428,7 @@ RedeemBtn.MouseButton1Click:Connect(function()
         StatusText.TextColor3 = Color3.fromRGB(255, 80, 80)
         KeyBox.Text = "" 
         ShakeUI(InputContainer) 
+        isChecking = false -- Reset debounce so they can try again
     end
 end)
 
