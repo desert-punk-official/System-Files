@@ -22,7 +22,7 @@ local UI_CONFIG = {
     Font = Enum.Font.GothamBold,
     FontRegular = Enum.Font.GothamMedium,
     DiscordLink = "https://discord.gg/JxEjAtdgWD",
-    BackgroundImage = "rbxassetid://93794003906343" -- [[ YOUR CUSTOM IMAGE ]]
+    BackgroundImage = "rbxassetid://83372655709716" -- [[ YOUR CUSTOM IMAGE ]]
 }
 
 -- // 1. LOAD KEY LIBRARY //
