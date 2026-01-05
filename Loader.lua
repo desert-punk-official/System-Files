@@ -1,13 +1,15 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 14.0 (Final Gold: Debounce, Visual Polish, Anti-Spam)
--- Features: Anti-Spam (Debounce), ClipsDescendants, Touch Fix, Scale Anim
+-- Version: 16.2 (Efficient: No FPS Force, Battery Safe, Asset Preload)
+-- Features: Paste, Shake Error, Slide Anim, Safe Load, Mobile Optimized
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
+local ContentProvider = game:GetService("ContentProvider")
 local VirtualUser = game:GetService("VirtualUser") 
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 -- [1] CONFIGURATION
@@ -16,7 +18,7 @@ local MainUI_URL   = "https://raw.githubusercontent.com/Silent-Caliber/System-Fi
 
 local UI_CONFIG = {
     Title = "PUNK X",
-    Version = "v14.0",
+    Version = "v16.2",
     AccentColor = Color3.fromRGB(0, 120, 255),
     BgColor = Color3.fromRGB(20, 20, 23),
     InputColor = Color3.fromRGB(30, 30, 35),
@@ -24,7 +26,12 @@ local UI_CONFIG = {
     Font = Enum.Font.GothamBold,
     FontRegular = Enum.Font.GothamMedium,
     DiscordLink = "https://discord.gg/JxEjAtdgWD",
-    BackgroundImage = "rbxthumb://type=Asset&id=83372655709716&w=768&h=432"
+    
+    -- [BACKGROUND] (Original ID)
+    BackgroundImage = "rbxthumb://type=Asset&id=83372655709716&w=768&h=432",
+    
+    -- [ICON] (New ID)
+    IconImage = "rbxthumb://type=Asset&id=128877949924034&w=150&h=150"
 }
 
 -- [SOUND CONFIG]
@@ -39,6 +46,16 @@ local function GetSecureParent()
     if gethui then return gethui()
     elseif CoreGui:FindFirstChild("RobloxGui") then return CoreGui
     else return LocalPlayer:WaitForChild("PlayerGui") end
+end
+
+-- // HELPER: BRANDED NOTIFICATION //
+local function Notify(title, text, duration)
+    StarterGui:SetCore("SendNotification", {
+        Title = title,
+        Text = text,
+        Duration = duration or 3,
+        Icon = UI_CONFIG.IconImage
+    })
 end
 
 -- // SOUND HELPER //
@@ -69,11 +86,7 @@ local function ShakeUI(guiObject)
 end
 
 -- // WELCOME MESSAGE //
-StarterGui:SetCore("SendNotification", {
-    Title = "Punk X",
-    Text = "Initializing... Welcome, " .. LocalPlayer.DisplayName,
-    Duration = 3
-})
+Notify("Punk X", "Initializing... Welcome, " .. LocalPlayer.DisplayName)
 
 -- // 1. LOAD KEY LIBRARY //
 local success, KeyLib = pcall(function()
@@ -81,7 +94,7 @@ local success, KeyLib = pcall(function()
 end)
 
 if not success or not KeyLib then
-    StarterGui:SetCore("SendNotification", {Title = "Punk X Error", Text = "Connection Error.", Duration = 5})
+    Notify("Punk X Error", "Connection Error.", 5)
     return
 end
 
@@ -95,7 +108,7 @@ local function LaunchPunkX()
         end)
         if not load_success then
             PlaySound(SOUNDS.Error, 1)
-            StarterGui:SetCore("SendNotification", {Title = "Punk X Error", Text = "Failed to load Executor! (Maintenance?)", Duration = 5})
+            Notify("Punk X Error", "Failed to load Executor! (Maintenance?)", 5)
             warn("[PUNK X DEBUG]: " .. tostring(load_result))
         end
     end)
@@ -108,7 +121,7 @@ local function OnKeyVerified(data)
         elseif data.keyInfo and data.keyInfo.expiresAt then expiryDate = data.keyInfo.expiresAt end
     end
     getgenv().PUNK_X_EXPIRY = expiryDate
-    StarterGui:SetCore("SendNotification", {Title = "Punk X", Text = "Access Granted! Loading...", Duration = 3})
+    Notify("Punk X", "Access Granted! Loading...", 3)
     LaunchPunkX()
 end
 
@@ -171,7 +184,7 @@ MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.BackgroundColor3 = UI_CONFIG.BgColor
 MainFrame.BorderSizePixel = 0
-MainFrame.ClipsDescendants = true -- [FIX] Hides messy text during animation
+MainFrame.ClipsDescendants = true 
 MainFrame.Active = true 
 MakeDraggable(MainFrame)
 
@@ -191,6 +204,13 @@ BgImage.ScaleType = Enum.ScaleType.Crop
 BgImage.ImageColor3 = Color3.fromRGB(150, 150, 150) 
 BgImage.ZIndex = 1 
 Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 16)
+
+-- [SAFE ASSET PRELOADER]
+task.spawn(function()
+    pcall(function()
+        ContentProvider:PreloadAsync({BgImage})
+    end)
+end)
 
 -- UI ELEMENTS
 local Title = Instance.new("TextLabel", MainFrame)
@@ -344,7 +364,7 @@ KeyBox.FocusLost:Connect(function()
 end)
 
 -- // 5. LOGIC //
-local isChecking = false -- [DEBOUNCE]
+local isChecking = false
 
 PasteBtn.MouseButton1Click:Connect(function()
     if getclipboard then
@@ -369,15 +389,10 @@ DiscordBtn.MouseButton1Click:Connect(function()
     PlaySound(SOUNDS.Click, 0.5) 
     if setclipboard then
         setclipboard(UI_CONFIG.DiscordLink)
-        StatusText.Text = "Discord Invite Copied!"
-        StatusText.TextColor3 = UI_CONFIG.DiscordColor
+        Notify("Punk X", "Discord Invite Copied!", 3)
     else
-        StatusText.Text = "See Console (F9)"
         print("Discord:", UI_CONFIG.DiscordLink)
     end
-    task.wait(2)
-    StatusText.Text = "Status: Waiting for key"
-    StatusText.TextColor3 = Color3.fromRGB(100, 100, 100)
 end)
 
 GetKeyBtn.MouseButton1Click:Connect(function()
@@ -385,20 +400,16 @@ GetKeyBtn.MouseButton1Click:Connect(function()
     if setclipboard then
         setclipboard(KeyLib.GetKeyURL())
         GetKeyBtn.Text = "Copied!"
-        StatusText.Text = "Key Link copied!"
-        StatusText.TextColor3 = Color3.fromRGB(0, 255, 150)
+        Notify("Punk X", "Key Link Copied!", 3)
     else
         print("Key URL:", KeyLib.GetKeyURL())
-        StatusText.Text = "See Console (F9)"
     end
     task.wait(1.5)
     GetKeyBtn.Text = "Get Key"
-    StatusText.Text = "Status: Waiting for key"
-    StatusText.TextColor3 = Color3.fromRGB(100, 100, 100)
 end)
 
 RedeemBtn.MouseButton1Click:Connect(function()
-    if isChecking then return end -- Stop spam clicks
+    if isChecking then return end
     isChecking = true
     
     StatusText.Text = "Checking..."
@@ -412,6 +423,7 @@ RedeemBtn.MouseButton1Click:Connect(function()
         StatusText.Text = "Success!"
         StatusText.TextColor3 = Color3.fromRGB(50, 255, 100)
         
+        -- [SLIDE OUT ANIMATION]
         TweenObj(Blur, {Size = 0}, 0.5)
         TweenObj(MainFrame, {
             Position = UDim2.new(0.5, 0, 1.5, 0)
@@ -428,7 +440,7 @@ RedeemBtn.MouseButton1Click:Connect(function()
         StatusText.TextColor3 = Color3.fromRGB(255, 80, 80)
         KeyBox.Text = "" 
         ShakeUI(InputContainer) 
-        isChecking = false -- Reset debounce so they can try again
+        isChecking = false
     end
 end)
 
