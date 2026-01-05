@@ -1,6 +1,6 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 9.0 (God Mode: Paste Button, Custom Maintenance, Safe Load)
--- Features: Paste Button, Custom Error, gethui, Max Priority, Draggable, Anti-AFK
+-- Version: 11.0 (The Clean Build)
+-- Features: Paste, Shake Error, Rainbow Border, Safe Load, No Bloat
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -8,6 +8,7 @@ local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local VirtualUser = game:GetService("VirtualUser") 
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 -- [1] CONFIGURATION
@@ -16,12 +17,11 @@ local MainUI_URL   = "https://raw.githubusercontent.com/Silent-Caliber/System-Fi
 
 local UI_CONFIG = {
     Title = "PUNK X",
-    Version = "v9.0",
+    Version = "v11.0",
     AccentColor = Color3.fromRGB(0, 120, 255),
     BgColor = Color3.fromRGB(20, 20, 23),
     InputColor = Color3.fromRGB(30, 30, 35),
     DiscordColor = Color3.fromRGB(88, 101, 242),
-    CloseColor = Color3.fromRGB(255, 60, 60), 
     Font = Enum.Font.GothamBold,
     FontRegular = Enum.Font.GothamMedium,
     DiscordLink = "https://discord.gg/JxEjAtdgWD",
@@ -56,13 +56,35 @@ local function PlaySound(id, volume)
     end)
 end
 
+-- // SHAKE ANIMATION //
+local function ShakeUI(guiObject)
+    local originalPos = guiObject.Position
+    local duration = 0.05
+    local intensity = 5
+    for i = 1, 6 do
+        local offset = (i % 2 == 0 and -intensity or intensity)
+        TweenService:Create(guiObject, TweenInfo.new(duration), {
+            Position = UDim2.new(originalPos.X.Scale, originalPos.X.Offset + offset, originalPos.Y.Scale, originalPos.Y.Offset)
+        }):Play()
+        task.wait(duration)
+    end
+    TweenService:Create(guiObject, TweenInfo.new(duration), {Position = originalPos}):Play()
+end
+
+-- // WELCOME MESSAGE //
+StarterGui:SetCore("SendNotification", {
+    Title = "Punk X",
+    Text = "Initializing... Welcome, " .. LocalPlayer.DisplayName,
+    Duration = 3
+})
+
 -- // 1. LOAD KEY LIBRARY //
 local success, KeyLib = pcall(function()
     return loadstring(game:HttpGet(KeyLogic_URL))()
 end)
 
 if not success or not KeyLib then
-    StarterGui:SetCore("SendNotification", {Title = "Punk X Error", Text = "Connection Error. Check Internet.", Duration = 5})
+    StarterGui:SetCore("SendNotification", {Title = "Punk X Error", Text = "Connection Error.", Duration = 5})
     return
 end
 
@@ -70,23 +92,15 @@ end
 
 local function LaunchPunkX()
     getgenv().PUNK_X_AUTH_TOKEN = "9a2f-punk-x-8812-secure-v2-441b"
-    
     task.spawn(function()
-        -- [SAFETY NET START]
         local load_success, load_result = pcall(function()
             return loadstring(game:HttpGet(MainUI_URL))()
         end)
-
         if not load_success then
             PlaySound(SOUNDS.Error, 1)
-            StarterGui:SetCore("SendNotification", {
-                Title = "Punk X Error",
-                Text = "Failed to load Executor! (Maintenance?)", -- Custom Message
-                Duration = 5
-            })
+            StarterGui:SetCore("SendNotification", {Title = "Punk X Error", Text = "Failed to load Executor! (Maintenance?)", Duration = 5})
             warn("[PUNK X DEBUG]: " .. tostring(load_result))
         end
-        -- [SAFETY NET END]
     end)
 end
 
@@ -165,9 +179,29 @@ MakeDraggable(MainFrame)
 
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 16)
 local Stroke = Instance.new("UIStroke", MainFrame)
-Stroke.Color = Color3.fromRGB(50, 50, 55)
-Stroke.Thickness = 1.5
-Stroke.Transparency = 1
+Stroke.Color = Color3.fromRGB(255, 255, 255)
+Stroke.Thickness = 2
+Stroke.Transparency = 0
+
+-- RAINBOW GRADIENT (Border Only - Looks Cleanest)
+local RainbowGradient = Instance.new("UIGradient", Stroke)
+RainbowGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0.00, Color3.fromHSV(0.0, 1, 1)),
+    ColorSequenceKeypoint.new(0.20, Color3.fromHSV(0.2, 1, 1)),
+    ColorSequenceKeypoint.new(0.40, Color3.fromHSV(0.4, 1, 1)),
+    ColorSequenceKeypoint.new(0.60, Color3.fromHSV(0.6, 1, 1)),
+    ColorSequenceKeypoint.new(0.80, Color3.fromHSV(0.8, 1, 1)),
+    ColorSequenceKeypoint.new(1.00, Color3.fromHSV(1.0, 1, 1))
+}
+-- Spin the gradient
+task.spawn(function()
+    local rotation = 0
+    while MainFrame.Parent do
+        rotation = rotation + 1
+        RainbowGradient.Rotation = rotation
+        task.wait(0.02)
+    end
+end)
 
 -- Background
 local BgImage = Instance.new("ImageLabel", MainFrame)
@@ -180,7 +214,7 @@ BgImage.ImageColor3 = Color3.fromRGB(150, 150, 150)
 BgImage.ZIndex = 1 
 Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 16)
 
--- UI Text
+-- TITLE TEXT (Clean White)
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Text = UI_CONFIG.Title
 Title.Font = UI_CONFIG.Font
@@ -192,7 +226,6 @@ Title.Position = UDim2.new(0.05, 0, 0.05, 0)
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.ZIndex = 2 
 
--- Version Label
 local VerLabel = Instance.new("TextLabel", MainFrame)
 VerLabel.Text = UI_CONFIG.Version
 VerLabel.Font = UI_CONFIG.FontRegular
@@ -216,22 +249,6 @@ SubTitle.Position = UDim2.new(0.05, 0, 0.22, 0)
 SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 SubTitle.ZIndex = 2
 
--- Close Button
-local CloseBtn = Instance.new("TextButton", MainFrame)
-CloseBtn.Name = "CloseBtn"
-CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -10, 0, 10) 
-CloseBtn.AnchorPoint = Vector2.new(1, 0)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-CloseBtn.BackgroundTransparency = 0.5
-CloseBtn.Text = "X"
-CloseBtn.TextColor3 = UI_CONFIG.CloseColor
-CloseBtn.Font = UI_CONFIG.Font
-CloseBtn.TextSize = 16
-CloseBtn.ZIndex = 5
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
-
--- Discord Button
 local DiscordBtn = Instance.new("TextButton", MainFrame)
 DiscordBtn.Name = "DiscordBtn"
 DiscordBtn.Size = UDim2.new(0, 100, 0, 32)
@@ -245,7 +262,6 @@ DiscordBtn.TextSize = 12
 DiscordBtn.ZIndex = 2
 Instance.new("UICorner", DiscordBtn).CornerRadius = UDim.new(0, 8)
 
--- Input Area
 local InputContainer = Instance.new("Frame", MainFrame)
 InputContainer.Size = UDim2.new(0.85, 0, 0.22, 0)
 InputContainer.Position = UDim2.new(0.5, 0, 0.45, 0)
@@ -262,7 +278,7 @@ InputStroke.Thickness = 1
 InputStroke.Transparency = 0.8
 
 local KeyBox = Instance.new("TextBox", InputContainer)
-KeyBox.Size = UDim2.new(0.8, 0, 1, 0) -- Made smaller to fit Paste Button
+KeyBox.Size = UDim2.new(0.8, 0, 1, 0)
 KeyBox.Position = UDim2.new(0.05, 0, 0, 0)
 KeyBox.BackgroundTransparency = 1
 KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -274,7 +290,6 @@ KeyBox.TextXAlignment = Enum.TextXAlignment.Left
 KeyBox.ZIndex = 3
 KeyBox.ClearTextOnFocus = false
 
--- [NEW] PASTE BUTTON
 local PasteBtn = Instance.new("TextButton", InputContainer)
 PasteBtn.Size = UDim2.new(0.15, 0, 0.8, 0)
 PasteBtn.Position = UDim2.new(0.98, 0, 0.5, 0)
@@ -328,7 +343,7 @@ StatusText.ZIndex = 2
 
 -- // 4. ANIMATIONS //
 TweenObj(MainFrame, {Size = UDim2.new(0, 380, 0, 240)}, 0.4) 
-TweenObj(Stroke, {Transparency = 0.5}, 0.8)
+TweenObj(Stroke, {Transparency = 0}, 0.8)
 
 local function AddButtonEffects(btn)
     btn.MouseEnter:Connect(function() TweenObj(btn, {BackgroundTransparency = 0.2}) end)
@@ -338,7 +353,6 @@ local function AddButtonEffects(btn)
 end
 AddButtonEffects(GetKeyBtn)
 AddButtonEffects(RedeemBtn)
-AddButtonEffects(CloseBtn)
 AddButtonEffects(PasteBtn)
 
 KeyBox.Focused:Connect(function()
@@ -352,31 +366,22 @@ end)
 
 -- // 5. LOGIC //
 
--- [NEW] PASTE BUTTON LOGIC
 PasteBtn.MouseButton1Click:Connect(function()
     if getclipboard then
         local clip = getclipboard()
         if clip and clip ~= "" then
-            KeyBox.Text = clip -- Fills box instantly
+            KeyBox.Text = clip
             PlaySound(SOUNDS.Click, 0.6)
         else
             StatusText.Text = "Clipboard Empty!"
             StatusText.TextColor3 = Color3.fromRGB(255, 100, 100)
             PlaySound(SOUNDS.Error, 0.5)
+            ShakeUI(InputContainer)
         end
     else
         StatusText.Text = "Not Supported!"
         PlaySound(SOUNDS.Error, 0.5)
     end
-end)
-
-CloseBtn.MouseButton1Click:Connect(function()
-    PlaySound(SOUNDS.Error, 0.5)
-    TweenObj(Blur, {Size = 0}, 0.5)
-    TweenObj(MainFrame, {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}, 0.4)
-    task.wait(0.5)
-    Blur:Destroy()
-    ScreenGui:Destroy()
 end)
 
 DiscordBtn.MouseButton1Click:Connect(function()
@@ -415,7 +420,6 @@ RedeemBtn.MouseButton1Click:Connect(function()
     StatusText.Text = "Checking..."
     StatusText.TextColor3 = Color3.fromRGB(255, 200, 50)
     
-    -- [AUTO-TRIM] Removes spaces and newlines
     local key = KeyBox.Text:gsub("%s+", "") 
     local valid, data = KeyLib.Validate(key)
     
@@ -436,6 +440,7 @@ RedeemBtn.MouseButton1Click:Connect(function()
         StatusText.Text = "Invalid Key"
         StatusText.TextColor3 = Color3.fromRGB(255, 80, 80)
         KeyBox.Text = "" 
+        ShakeUI(InputContainer) 
     end
 end)
 
