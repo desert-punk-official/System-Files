@@ -1,12 +1,13 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 7.1 (Fixed Background & Corners)
--- Features: Custom Background, Rounded Edges Fixed, Discord Button, Expiry Fix
+-- Version: 7.2 (Fixed: Layering, Security & Mobile Controls)
+-- Features: gethui Support, Topmost Layering, Rounded Corners, Auth System
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 -- [1] CONFIGURATION
 local KeyLogic_URL = "https://raw.githubusercontent.com/Silent-Caliber/System-Files/refs/heads/main/Auth.lua" 
@@ -14,16 +15,27 @@ local MainUI_URL   = "https://raw.githubusercontent.com/Silent-Caliber/System-Fi
 
 local UI_CONFIG = {
     Title = "PUNK X",
-    AccentColor = Color3.fromRGB(0, 120, 255), -- Modern Blue
-    BgColor = Color3.fromRGB(20, 20, 23),      -- Fallback Dark Grey
-    InputColor = Color3.fromRGB(30, 30, 35),   -- Lighter Grey
-    DiscordColor = Color3.fromRGB(88, 101, 242), -- Discord Blurple
+    AccentColor = Color3.fromRGB(0, 120, 255),
+    BgColor = Color3.fromRGB(20, 20, 23),
+    InputColor = Color3.fromRGB(30, 30, 35),
+    DiscordColor = Color3.fromRGB(88, 101, 242),
     Font = Enum.Font.GothamBold,
     FontRegular = Enum.Font.GothamMedium,
     DiscordLink = "https://discord.gg/JxEjAtdgWD",
-    -- [[ FIXED ID USING THUMBNAIL LOADER ]]
+    -- Note: This ID must be uploaded to Roblox to work for other people!
     BackgroundImage = "rbxthumb://type=Asset&id=83372655709716&w=768&h=432"
 }
+
+-- // SECURE PARENTING FUNCTION (gethui) //
+local function GetSecureParent()
+    if gethui then
+        return gethui() -- Best Option (Hidden)
+    elseif CoreGui:FindFirstChild("RobloxGui") then
+        return CoreGui -- Fallback
+    else
+        return LocalPlayer:WaitForChild("PlayerGui") -- Last Resort
+    end
+end
 
 -- // 1. LOAD KEY LIBRARY //
 local success, KeyLib = pcall(function()
@@ -31,13 +43,12 @@ local success, KeyLib = pcall(function()
 end)
 
 if not success or not KeyLib then
-    local err = Instance.new("ScreenGui", PlayerGui)
-    local t = Instance.new("TextLabel", err)
-    t.Size = UDim2.new(1,0,0.1,0)
-    t.Text = "Error: Failed to load Key System."
-    t.TextColor3 = Color3.new(1,0,0)
-    task.wait(5)
-    err:Destroy()
+    -- Simple error notification
+    StarterGui:SetCore("SendNotification", {
+        Title = "Punk X Error",
+        Text = "Failed to load Key System. Check Internet.",
+        Duration = 5
+    })
     return
 end
 
@@ -52,16 +63,11 @@ end
 
 local function OnKeyVerified(data)
     local expiryDate = "Active"
-    
     if data then
         if data.Key_Information and data.Key_Information.expiresAt then
             expiryDate = data.Key_Information.expiresAt
         elseif data.keyInfo and data.keyInfo.expiresAt then
             expiryDate = data.keyInfo.expiresAt
-        elseif data.expiresAt then
-            expiryDate = data.expiresAt
-        elseif data.expiry then
-            expiryDate = data.expiry
         end
     end
 
@@ -88,8 +94,9 @@ end
 
 -- // 3. BUILD UI //
 
-if PlayerGui:FindFirstChild("PunkX_ModernUI") then
-    PlayerGui["PunkX_ModernUI"]:Destroy()
+-- Cleanup old UI if it exists in CoreGui or PlayerGui
+for _, v in pairs(GetSecureParent():GetChildren()) do
+    if v.Name == "PunkX_ModernUI" then v:Destroy() end
 end
 
 local function TweenObj(obj, props, time)
@@ -99,9 +106,11 @@ end
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "PunkX_ModernUI"
-ScreenGui.Parent = PlayerGui
+ScreenGui.Parent = GetSecureParent() -- UPDATED: Uses secure parent
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.ResetOnSpawn = false
+ScreenGui.DisplayOrder = 2147483647 -- UPDATED: Forces UI on top of Jump Buttons
+ScreenGui.IgnoreGuiInset = true -- UPDATED: Fixes gaps at top of screen
 
 -- > Blur Effect
 local Blur = Instance.new("BlurEffect", game.Lighting)
@@ -112,12 +121,12 @@ TweenObj(Blur, {Size = 15}, 0.5)
 -- > Main Container
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0) -- Start size
+MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0)
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.BackgroundColor3 = UI_CONFIG.BgColor
 MainFrame.BorderSizePixel = 0
-MainFrame.ClipsDescendants = false -- Set to false so Stroke isn't cut off, Image will be rounded separately
+MainFrame.ClipsDescendants = false 
 
 local Corner = Instance.new("UICorner", MainFrame)
 Corner.CornerRadius = UDim.new(0, 16)
@@ -136,10 +145,7 @@ BgImage.Image = UI_CONFIG.BackgroundImage
 BgImage.ScaleType = Enum.ScaleType.Crop 
 BgImage.ImageColor3 = Color3.fromRGB(150, 150, 150) 
 BgImage.ZIndex = 1 
-
--- [[ FIX: ADDED UICORNER TO IMAGE TO FIX EDGES ]] --
-local BgCorner = Instance.new("UICorner", BgImage)
-BgCorner.CornerRadius = UDim.new(0, 16) -- Matches MainFrame Corner
+Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 16)
 
 -- > Title Header
 local Title = Instance.new("TextLabel", MainFrame)
@@ -247,8 +253,7 @@ StatusText.Font = Enum.Font.Gotham
 StatusText.TextSize = 11
 StatusText.ZIndex = 2
 
--- // 4. STARTUP ANIMATION //
-
+-- // 4. ANIMATIONS //
 TweenObj(MainFrame, {Size = UDim2.new(0, 380, 0, 240)}, 0.4) 
 TweenObj(Stroke, {Transparency = 0.5}, 0.8)
 
@@ -261,13 +266,6 @@ end
 AddButtonEffects(GetKeyBtn)
 AddButtonEffects(RedeemBtn)
 
-DiscordBtn.MouseEnter:Connect(function()
-    TweenObj(DiscordBtn, {BackgroundColor3 = Color3.fromRGB(114, 137, 218)})
-end)
-DiscordBtn.MouseLeave:Connect(function()
-    TweenObj(DiscordBtn, {BackgroundColor3 = UI_CONFIG.DiscordColor})
-end)
-
 KeyBox.Focused:Connect(function()
     TweenObj(InputStroke, {Transparency = 0, Color = UI_CONFIG.AccentColor})
     TweenObj(InputContainer, {BackgroundColor3 = Color3.fromRGB(35, 35, 40)})
@@ -277,19 +275,16 @@ KeyBox.FocusLost:Connect(function()
     TweenObj(InputContainer, {BackgroundColor3 = UI_CONFIG.InputColor})
 end)
 
--- // 5. BUTTON FUNCTIONALITY //
-
+-- // 5. LOGIC //
 DiscordBtn.MouseButton1Click:Connect(function()
     if setclipboard then
         setclipboard(UI_CONFIG.DiscordLink)
         StatusText.Text = "Discord Invite Copied!"
         StatusText.TextColor3 = UI_CONFIG.DiscordColor
     else
+        StatusText.Text = "See Console (F9)"
         print("Discord:", UI_CONFIG.DiscordLink)
     end
-    TweenObj(DiscordBtn, {Size = UDim2.new(0, 95, 0, 30)}, 0.1)
-    task.wait(0.1)
-    TweenObj(DiscordBtn, {Size = UDim2.new(0, 100, 0, 32)}, 0.1)
     task.wait(2)
     StatusText.Text = "Status: Waiting for key"
     StatusText.TextColor3 = Color3.fromRGB(100, 100, 100)
@@ -303,7 +298,7 @@ GetKeyBtn.MouseButton1Click:Connect(function()
         StatusText.TextColor3 = Color3.fromRGB(0, 255, 150)
     else
         print("Key URL:", KeyLib.GetKeyURL())
-        StatusText.Text = "Check Console (F9)"
+        StatusText.Text = "See Console (F9)"
     end
     task.wait(1.5)
     GetKeyBtn.Text = "Get Key"
