@@ -1,6 +1,6 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 6.0 (Final Release)
--- Changes: Removed Debugger, Fixed Expiry Date, Instant UI Load
+-- Logic: Real Key System + Auto Login + Date Fix
+-- UI: Exact copy of "Design Tester v2" (380x240 size)
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -53,7 +53,7 @@ local function OnKeyVerified(data)
     local expiryDate = "Active"
     
     if data then
-        -- [[ CHANGED: Prioritize the field seen in your logs ]]
+        -- Date Logic from logs
         if data.Key_Information and data.Key_Information.expiresAt then
             expiryDate = data.Key_Information.expiresAt
         elseif data.keyInfo and data.keyInfo.expiresAt then
@@ -67,7 +67,7 @@ local function OnKeyVerified(data)
 
     StarterGui:SetCore("SendNotification", {
         Title = "Punk X",
-        Text = "Key Verified! Launching...",
+        Text = "Access Granted! Loading...",
         Duration = 3
     })
     
@@ -84,13 +84,12 @@ if savedKey then
     end
 end
 
--- // 3. BUILD UI (The "Perfecto" Aesthetic) //
+-- // 3. BUILD UI (Exact Code from Design Tester v2) //
 
 if PlayerGui:FindFirstChild("PunkX_ModernUI") then
     PlayerGui["PunkX_ModernUI"]:Destroy()
 end
 
--- Helper: Tween
 local function TweenObj(obj, props, time)
     local info = TweenInfo.new(time or 0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
     TweenService:Create(obj, info, props):Play()
@@ -105,13 +104,13 @@ ScreenGui.ResetOnSpawn = false
 -- > Blur Effect
 local Blur = Instance.new("BlurEffect", game.Lighting)
 Blur.Name = "PunkX_Blur"
-Blur.Size = 15
+Blur.Size = 0 
+TweenObj(Blur, {Size = 15}, 0.5)
 
 -- > Main Container
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Name = "MainFrame"
--- [[ CHANGED: Set full size immediately to prevent glitching ]]
-MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0) 
+MainFrame.Size = UDim2.new(0, 0, 0, 0) -- Start small for animation
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.BackgroundColor3 = UI_CONFIG.BgColor
@@ -129,7 +128,7 @@ Stroke.Transparency = 1
 -- > Title Header
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Text = UI_CONFIG.Title
-Title.Font = Enum.Font.FredokaOne
+Title.Font = UI_CONFIG.Font
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 24
 Title.Size = UDim2.new(0.6, 0, 0.25, 0)
@@ -147,7 +146,7 @@ SubTitle.BackgroundTransparency = 1
 SubTitle.Position = UDim2.new(0.05, 0, 0.22, 0)
 SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 
--- > DISCORD BUTTON (TEXT BUTTON - NO LOGO BUGS)
+-- > DISCORD BUTTON (Text Button)
 local DiscordBtn = Instance.new("TextButton", MainFrame)
 DiscordBtn.Name = "DiscordBtn"
 DiscordBtn.Size = UDim2.new(0, 100, 0, 32)
@@ -222,7 +221,11 @@ StatusText.TextColor3 = Color3.fromRGB(100, 100, 100)
 StatusText.Font = Enum.Font.Gotham
 StatusText.TextSize = 11
 
--- // 4. INTERACTION LOGIC //
+-- // 4. STARTUP ANIMATION (Your Original Size) //
+
+-- This sets it to the size you liked (380x240)
+TweenObj(MainFrame, {Size = UDim2.new(0, 380, 0, 240)}, 0.4) 
+TweenObj(Stroke, {Transparency = 0.5}, 0.8)
 
 local function AddButtonEffects(btn)
     btn.MouseEnter:Connect(function() TweenObj(btn, {BackgroundTransparency = 0.2}) end)
@@ -233,8 +236,12 @@ end
 AddButtonEffects(GetKeyBtn)
 AddButtonEffects(RedeemBtn)
 
-DiscordBtn.MouseEnter:Connect(function() TweenObj(DiscordBtn, {BackgroundColor3 = Color3.fromRGB(114, 137, 218)}) end)
-DiscordBtn.MouseLeave:Connect(function() TweenObj(DiscordBtn, {BackgroundColor3 = UI_CONFIG.DiscordColor}) end)
+DiscordBtn.MouseEnter:Connect(function()
+    TweenObj(DiscordBtn, {BackgroundColor3 = Color3.fromRGB(114, 137, 218)})
+end)
+DiscordBtn.MouseLeave:Connect(function()
+    TweenObj(DiscordBtn, {BackgroundColor3 = UI_CONFIG.DiscordColor})
+end)
 
 KeyBox.Focused:Connect(function()
     TweenObj(InputStroke, {Transparency = 0, Color = UI_CONFIG.AccentColor})
@@ -245,7 +252,8 @@ KeyBox.FocusLost:Connect(function()
     TweenObj(InputContainer, {BackgroundColor3 = UI_CONFIG.InputColor})
 end)
 
--- Discord Logic
+-- // 5. BUTTON FUNCTIONALITY //
+
 DiscordBtn.MouseButton1Click:Connect(function()
     if setclipboard then
         setclipboard(UI_CONFIG.DiscordLink)
@@ -253,7 +261,6 @@ DiscordBtn.MouseButton1Click:Connect(function()
         StatusText.TextColor3 = UI_CONFIG.DiscordColor
     else
         print("Discord:", UI_CONFIG.DiscordLink)
-        StatusText.Text = "Check Console (F9)"
     end
     TweenObj(DiscordBtn, {Size = UDim2.new(0, 95, 0, 30)}, 0.1)
     task.wait(0.1)
@@ -263,7 +270,6 @@ DiscordBtn.MouseButton1Click:Connect(function()
     StatusText.TextColor3 = Color3.fromRGB(100, 100, 100)
 end)
 
--- Get Key Logic
 GetKeyBtn.MouseButton1Click:Connect(function()
     if setclipboard then
         setclipboard(KeyLib.GetKeyURL())
@@ -280,11 +286,9 @@ GetKeyBtn.MouseButton1Click:Connect(function()
     StatusText.TextColor3 = Color3.fromRGB(100, 100, 100)
 end)
 
--- Redeem Logic
 RedeemBtn.MouseButton1Click:Connect(function()
     StatusText.Text = "Checking..."
     StatusText.TextColor3 = Color3.fromRGB(255, 200, 50)
-    task.wait(0.5)
     
     local key = KeyBox.Text
     local valid, data = KeyLib.Validate(key)
@@ -305,8 +309,5 @@ RedeemBtn.MouseButton1Click:Connect(function()
     else
         StatusText.Text = "Invalid Key"
         StatusText.TextColor3 = Color3.fromRGB(255, 80, 80)
-        TweenObj(InputStroke, {Transparency = 0, Color = Color3.fromRGB(255, 80, 80)})
-        task.wait(1)
-        TweenObj(InputStroke, {Transparency = 0.8, Color = UI_CONFIG.AccentColor})
     end
 end)
