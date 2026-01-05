@@ -1,6 +1,5 @@
 -- // PUNK X OFFICIAL LOADER //
--- Logic: Real Key System + Auto Login + Date Fix
--- UI: Exact copy of "Design Tester v2" (380x240 size)
+-- Features: Custom Background Image, Modern UI, Auto-Login, Expiry Fix
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -16,12 +15,13 @@ local MainUI_URL   = "https://raw.githubusercontent.com/Silent-Caliber/System-Fi
 local UI_CONFIG = {
     Title = "PUNK X",
     AccentColor = Color3.fromRGB(0, 120, 255), -- Modern Blue
-    BgColor = Color3.fromRGB(20, 20, 23),      -- Deep Dark Grey
+    BgColor = Color3.fromRGB(20, 20, 23),      -- Fallback Dark Grey
     InputColor = Color3.fromRGB(30, 30, 35),   -- Lighter Grey
     DiscordColor = Color3.fromRGB(88, 101, 242), -- Discord Blurple
     Font = Enum.Font.GothamBold,
     FontRegular = Enum.Font.GothamMedium,
-    DiscordLink = "https://discord.gg/JxEjAtdgWD"
+    DiscordLink = "https://discord.gg/JxEjAtdgWD",
+    BackgroundImage = "rbxassetid://93794003906343" -- [[ YOUR CUSTOM IMAGE ]]
 }
 
 -- // 1. LOAD KEY LIBRARY //
@@ -84,7 +84,7 @@ if savedKey then
     end
 end
 
--- // 3. BUILD UI (Exact Code from Design Tester v2) //
+-- // 3. BUILD UI (With Custom Background) //
 
 if PlayerGui:FindFirstChild("PunkX_ModernUI") then
     PlayerGui["PunkX_ModernUI"]:Destroy()
@@ -110,7 +110,7 @@ TweenObj(Blur, {Size = 15}, 0.5)
 -- > Main Container
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 0, 0, 0) -- Start small for animation
+MainFrame.Size = UDim2.new(0, 0, 0, 0) -- Start small
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.BackgroundColor3 = UI_CONFIG.BgColor
@@ -125,6 +125,16 @@ Stroke.Color = Color3.fromRGB(50, 50, 55)
 Stroke.Thickness = 1.5
 Stroke.Transparency = 1
 
+-- [[ NEW: BACKGROUND IMAGE ]] --
+local BgImage = Instance.new("ImageLabel", MainFrame)
+BgImage.Name = "CustomBackground"
+BgImage.Size = UDim2.new(1, 0, 1, 0)
+BgImage.BackgroundTransparency = 1
+BgImage.Image = UI_CONFIG.BackgroundImage
+BgImage.ScaleType = Enum.ScaleType.Crop -- Ensures it fills correctly without stretching
+BgImage.ImageTransparency = 0.2 -- Slight transparency to blend with dark mode
+BgImage.ZIndex = 1 -- Sits behind everything else
+
 -- > Title Header
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Text = UI_CONFIG.Title
@@ -135,18 +145,20 @@ Title.Size = UDim2.new(0.6, 0, 0.25, 0)
 Title.BackgroundTransparency = 1
 Title.Position = UDim2.new(0.05, 0, 0.05, 0)
 Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.ZIndex = 2
 
 local SubTitle = Instance.new("TextLabel", MainFrame)
 SubTitle.Text = "Authentication Required"
 SubTitle.Font = UI_CONFIG.FontRegular
-SubTitle.TextColor3 = Color3.fromRGB(150, 150, 160)
+SubTitle.TextColor3 = Color3.fromRGB(200, 200, 200) -- Made brighter for visibility over image
 SubTitle.TextSize = 14
 SubTitle.Size = UDim2.new(1, 0, 0.1, 0)
 SubTitle.BackgroundTransparency = 1
 SubTitle.Position = UDim2.new(0.05, 0, 0.22, 0)
 SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+SubTitle.ZIndex = 2
 
--- > DISCORD BUTTON (Text Button)
+-- > DISCORD BUTTON
 local DiscordBtn = Instance.new("TextButton", MainFrame)
 DiscordBtn.Name = "DiscordBtn"
 DiscordBtn.Size = UDim2.new(0, 100, 0, 32)
@@ -157,6 +169,7 @@ DiscordBtn.Text = "Join Discord"
 DiscordBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 DiscordBtn.Font = UI_CONFIG.Font
 DiscordBtn.TextSize = 12
+DiscordBtn.ZIndex = 2
 Instance.new("UICorner", DiscordBtn).CornerRadius = UDim.new(0, 8)
 
 -- > Input Box
@@ -165,7 +178,9 @@ InputContainer.Size = UDim2.new(0.85, 0, 0.22, 0)
 InputContainer.Position = UDim2.new(0.5, 0, 0.45, 0)
 InputContainer.AnchorPoint = Vector2.new(0.5, 0)
 InputContainer.BackgroundColor3 = UI_CONFIG.InputColor
+InputContainer.BackgroundTransparency = 0.2 -- Slightly see-through
 InputContainer.BorderSizePixel = 0
+InputContainer.ZIndex = 2
 Instance.new("UICorner", InputContainer).CornerRadius = UDim.new(0, 10)
 
 local InputStroke = Instance.new("UIStroke", InputContainer)
@@ -179,10 +194,11 @@ KeyBox.Position = UDim2.new(0.05, 0, 0, 0)
 KeyBox.BackgroundTransparency = 1
 KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 KeyBox.PlaceholderText = "Paste your key here..."
-KeyBox.PlaceholderColor3 = Color3.fromRGB(100, 100, 110)
+KeyBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
 KeyBox.Font = UI_CONFIG.FontRegular
 KeyBox.TextSize = 14
 KeyBox.TextXAlignment = Enum.TextXAlignment.Left
+KeyBox.ZIndex = 3
 
 -- > Buttons
 local BtnContainer = Instance.new("Frame", MainFrame)
@@ -190,14 +206,16 @@ BtnContainer.Size = UDim2.new(0.85, 0, 0.18, 0)
 BtnContainer.Position = UDim2.new(0.5, 0, 0.75, 0)
 BtnContainer.AnchorPoint = Vector2.new(0.5, 0)
 BtnContainer.BackgroundTransparency = 1
+BtnContainer.ZIndex = 2
 
 local GetKeyBtn = Instance.new("TextButton", BtnContainer)
 GetKeyBtn.Size = UDim2.new(0.47, 0, 1, 0)
 GetKeyBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
 GetKeyBtn.Text = "Get Key"
-GetKeyBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+GetKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 GetKeyBtn.Font = UI_CONFIG.Font
 GetKeyBtn.TextSize = 14
+GetKeyBtn.ZIndex = 3
 Instance.new("UICorner", GetKeyBtn).CornerRadius = UDim.new(0, 8)
 
 local RedeemBtn = Instance.new("TextButton", BtnContainer)
@@ -209,6 +227,7 @@ RedeemBtn.Text = "Redeem"
 RedeemBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 RedeemBtn.Font = UI_CONFIG.Font
 RedeemBtn.TextSize = 14
+RedeemBtn.ZIndex = 3
 Instance.new("UICorner", RedeemBtn).CornerRadius = UDim.new(0, 8)
 
 -- > Status Text
@@ -217,13 +236,13 @@ StatusText.Size = UDim2.new(1, 0, 0.1, 0)
 StatusText.Position = UDim2.new(0, 0, 0.92, 0)
 StatusText.BackgroundTransparency = 1
 StatusText.Text = "Status: Waiting for key"
-StatusText.TextColor3 = Color3.fromRGB(100, 100, 100)
+StatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
 StatusText.Font = Enum.Font.Gotham
 StatusText.TextSize = 11
+StatusText.ZIndex = 2
 
--- // 4. STARTUP ANIMATION (Your Original Size) //
+-- // 4. STARTUP ANIMATION (380x240) //
 
--- This sets it to the size you liked (380x240)
 TweenObj(MainFrame, {Size = UDim2.new(0, 380, 0, 240)}, 0.4) 
 TweenObj(Stroke, {Transparency = 0.5}, 0.8)
 
@@ -267,7 +286,7 @@ DiscordBtn.MouseButton1Click:Connect(function()
     TweenObj(DiscordBtn, {Size = UDim2.new(0, 100, 0, 32)}, 0.1)
     task.wait(2)
     StatusText.Text = "Status: Waiting for key"
-    StatusText.TextColor3 = Color3.fromRGB(100, 100, 100)
+    StatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
 end)
 
 GetKeyBtn.MouseButton1Click:Connect(function()
@@ -283,7 +302,7 @@ GetKeyBtn.MouseButton1Click:Connect(function()
     task.wait(1.5)
     GetKeyBtn.Text = "Get Key"
     StatusText.Text = "Status: Waiting for key"
-    StatusText.TextColor3 = Color3.fromRGB(100, 100, 100)
+    StatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
 end)
 
 RedeemBtn.MouseButton1Click:Connect(function()
