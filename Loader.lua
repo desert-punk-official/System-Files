@@ -1,12 +1,13 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 7.2 (Fixed: Layering, Security & Mobile Controls)
--- Features: gethui Support, Topmost Layering, Rounded Corners, Auth System
+-- Version: 7.5 (Final: Audio, Anti-AFK, Draggable, Secure, Ready for Public ID)
+-- Features: gethui Support, Max Priority, Mobile Draggable, Sound Effects, Anti-AFK
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
+local VirtualUser = game:GetService("VirtualUser") 
 local LocalPlayer = Players.LocalPlayer
 
 -- [1] CONFIGURATION
@@ -22,19 +23,30 @@ local UI_CONFIG = {
     Font = Enum.Font.GothamBold,
     FontRegular = Enum.Font.GothamMedium,
     DiscordLink = "https://discord.gg/JxEjAtdgWD",
-    -- Note: This ID must be uploaded to Roblox to work for other people!
+    
+    -- [ACTION REQUIRED]: Paste your NEW Public ID below!
+    -- The current one (8337...) is the local temporary one.
+    -- Go to the website, copy the ID of the image you uploaded, and paste it here.
     BackgroundImage = "rbxthumb://type=Asset&id=83372655709716&w=768&h=432"
 }
 
--- // SECURE PARENTING FUNCTION (gethui) //
+-- // SECURE PARENTING (gethui) //
 local function GetSecureParent()
-    if gethui then
-        return gethui() -- Best Option (Hidden)
-    elseif CoreGui:FindFirstChild("RobloxGui") then
-        return CoreGui -- Fallback
-    else
-        return LocalPlayer:WaitForChild("PlayerGui") -- Last Resort
-    end
+    if gethui then return gethui()
+    elseif CoreGui:FindFirstChild("RobloxGui") then return CoreGui
+    else return LocalPlayer:WaitForChild("PlayerGui") end
+end
+
+-- // SOUND HELPER //
+local function PlaySound(id, volume)
+    task.spawn(function()
+        local s = Instance.new("Sound")
+        s.SoundId = "rbxassetid://" .. tostring(id)
+        s.Volume = volume or 1
+        s.Parent = game:GetService("SoundService")
+        s.PlayOnRemove = true
+        s:Destroy()
+    end)
 end
 
 -- // 1. LOAD KEY LIBRARY //
@@ -43,12 +55,7 @@ local success, KeyLib = pcall(function()
 end)
 
 if not success or not KeyLib then
-    -- Simple error notification
-    StarterGui:SetCore("SendNotification", {
-        Title = "Punk X Error",
-        Text = "Failed to load Key System. Check Internet.",
-        Duration = 5
-    })
+    StarterGui:SetCore("SendNotification", {Title = "Punk X Error", Text = "Failed to load Key System.", Duration = 5})
     return
 end
 
@@ -64,61 +71,66 @@ end
 local function OnKeyVerified(data)
     local expiryDate = "Active"
     if data then
-        if data.Key_Information and data.Key_Information.expiresAt then
-            expiryDate = data.Key_Information.expiresAt
-        elseif data.keyInfo and data.keyInfo.expiresAt then
-            expiryDate = data.keyInfo.expiresAt
-        end
+        if data.Key_Information and data.Key_Information.expiresAt then expiryDate = data.Key_Information.expiresAt
+        elseif data.keyInfo and data.keyInfo.expiresAt then expiryDate = data.keyInfo.expiresAt end
     end
-
     getgenv().PUNK_X_EXPIRY = expiryDate
-
-    StarterGui:SetCore("SendNotification", {
-        Title = "Punk X",
-        Text = "Access Granted! Loading...",
-        Duration = 3
-    })
-    
+    StarterGui:SetCore("SendNotification", {Title = "Punk X", Text = "Access Granted! Loading...", Duration = 3})
     LaunchPunkX()
+end
+
+-- // DRAGGABLE LOGIC //
+local function MakeDraggable(gui)
+    local dragging, dragInput, dragStart, startPos
+    local function update(input)
+        local delta = input.Position - dragStart
+        gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+    gui.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = gui.Position
+            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+        end
+    end)
+    gui.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+    end)
+    UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then update(input) end end)
 end
 
 -- // 2. CHECK AUTO-LOGIN //
 local savedKey = KeyLib.GetSavedKey()
 if savedKey then
     local valid, data = KeyLib.Validate(savedKey)
-    if valid then
-        OnKeyVerified(data)
-        return -- Stop here
-    end
+    if valid then OnKeyVerified(data) return end
 end
 
 -- // 3. BUILD UI //
 
--- Cleanup old UI if it exists in CoreGui or PlayerGui
 for _, v in pairs(GetSecureParent():GetChildren()) do
     if v.Name == "PunkX_ModernUI" then v:Destroy() end
 end
 
 local function TweenObj(obj, props, time)
-    local info = TweenInfo.new(time or 0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-    TweenService:Create(obj, info, props):Play()
+    TweenService:Create(obj, TweenInfo.new(time or 0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), props):Play()
 end
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "PunkX_ModernUI"
-ScreenGui.Parent = GetSecureParent() -- UPDATED: Uses secure parent
+ScreenGui.Parent = GetSecureParent()
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.ResetOnSpawn = false
-ScreenGui.DisplayOrder = 2147483647 -- UPDATED: Forces UI on top of Jump Buttons
-ScreenGui.IgnoreGuiInset = true -- UPDATED: Fixes gaps at top of screen
+ScreenGui.DisplayOrder = 2147483647 -- MAX PRIORITY
+ScreenGui.IgnoreGuiInset = true 
 
--- > Blur Effect
 local Blur = Instance.new("BlurEffect", game.Lighting)
 Blur.Name = "PunkX_Blur"
 Blur.Size = 0 
 TweenObj(Blur, {Size = 15}, 0.5)
 
--- > Main Container
+-- Main Frame
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0)
@@ -127,16 +139,15 @@ MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.BackgroundColor3 = UI_CONFIG.BgColor
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = false 
+MakeDraggable(MainFrame)
 
-local Corner = Instance.new("UICorner", MainFrame)
-Corner.CornerRadius = UDim.new(0, 16)
-
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 16)
 local Stroke = Instance.new("UIStroke", MainFrame)
 Stroke.Color = Color3.fromRGB(50, 50, 55)
 Stroke.Thickness = 1.5
 Stroke.Transparency = 1
 
--- [[ BACKGROUND IMAGE LOGIC ]] --
+-- Background Image
 local BgImage = Instance.new("ImageLabel", MainFrame)
 BgImage.Name = "Background"
 BgImage.Size = UDim2.new(1, 0, 1, 0)
@@ -147,7 +158,7 @@ BgImage.ImageColor3 = Color3.fromRGB(150, 150, 150)
 BgImage.ZIndex = 1 
 Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 16)
 
--- > Title Header
+-- UI Elements
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Text = UI_CONFIG.Title
 Title.Font = UI_CONFIG.Font
@@ -170,7 +181,6 @@ SubTitle.Position = UDim2.new(0.05, 0, 0.22, 0)
 SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 SubTitle.ZIndex = 2
 
--- > DISCORD BUTTON
 local DiscordBtn = Instance.new("TextButton", MainFrame)
 DiscordBtn.Name = "DiscordBtn"
 DiscordBtn.Size = UDim2.new(0, 100, 0, 32)
@@ -184,7 +194,6 @@ DiscordBtn.TextSize = 12
 DiscordBtn.ZIndex = 2
 Instance.new("UICorner", DiscordBtn).CornerRadius = UDim.new(0, 8)
 
--- > Input Box
 local InputContainer = Instance.new("Frame", MainFrame)
 InputContainer.Size = UDim2.new(0.85, 0, 0.22, 0)
 InputContainer.Position = UDim2.new(0.5, 0, 0.45, 0)
@@ -212,7 +221,6 @@ KeyBox.TextSize = 14
 KeyBox.TextXAlignment = Enum.TextXAlignment.Left
 KeyBox.ZIndex = 3
 
--- > Buttons
 local BtnContainer = Instance.new("Frame", MainFrame)
 BtnContainer.Size = UDim2.new(0.85, 0, 0.18, 0)
 BtnContainer.Position = UDim2.new(0.5, 0, 0.75, 0)
@@ -242,7 +250,6 @@ RedeemBtn.TextSize = 14
 RedeemBtn.ZIndex = 3
 Instance.new("UICorner", RedeemBtn).CornerRadius = UDim.new(0, 8)
 
--- > Status Text
 local StatusText = Instance.new("TextLabel", MainFrame)
 StatusText.Size = UDim2.new(1, 0, 0.1, 0)
 StatusText.Position = UDim2.new(0, 0, 0.92, 0)
@@ -275,8 +282,10 @@ KeyBox.FocusLost:Connect(function()
     TweenObj(InputContainer, {BackgroundColor3 = UI_CONFIG.InputColor})
 end)
 
--- // 5. LOGIC //
+-- // 5. BUTTON LOGIC (WITH SOUNDS) //
+
 DiscordBtn.MouseButton1Click:Connect(function()
+    PlaySound(6895079853, 0.5) 
     if setclipboard then
         setclipboard(UI_CONFIG.DiscordLink)
         StatusText.Text = "Discord Invite Copied!"
@@ -291,6 +300,7 @@ DiscordBtn.MouseButton1Click:Connect(function()
 end)
 
 GetKeyBtn.MouseButton1Click:Connect(function()
+    PlaySound(6895079853, 0.5)
     if setclipboard then
         setclipboard(KeyLib.GetKeyURL())
         GetKeyBtn.Text = "Copied!"
@@ -314,6 +324,7 @@ RedeemBtn.MouseButton1Click:Connect(function()
     local valid, data = KeyLib.Validate(key)
     
     if valid then
+        PlaySound(6000289139, 1) -- SUCCESS
         StatusText.Text = "Success!"
         StatusText.TextColor3 = Color3.fromRGB(50, 255, 100)
         
@@ -327,7 +338,14 @@ RedeemBtn.MouseButton1Click:Connect(function()
         -- Launch
         OnKeyVerified(data)
     else
+        PlaySound(6000293813, 0.8) -- ERROR
         StatusText.Text = "Invalid Key"
         StatusText.TextColor3 = Color3.fromRGB(255, 80, 80)
     end
+end)
+
+-- // 6. ANTI-AFK //
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
 end)
