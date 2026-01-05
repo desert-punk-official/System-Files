@@ -1,5 +1,6 @@
 -- // PUNK X OFFICIAL LOADER //
--- Features: Custom Background Image, Modern UI, Auto-Login, Expiry Fix
+-- Version: 7.0 (Image Background Fixed)
+-- Features: Custom Background, Discord Button, Expiry Fix, Auto-Login
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -53,13 +54,15 @@ local function OnKeyVerified(data)
     local expiryDate = "Active"
     
     if data then
-        -- Date Logic from logs
+        -- Date Logic (Key_Information fix included)
         if data.Key_Information and data.Key_Information.expiresAt then
             expiryDate = data.Key_Information.expiresAt
         elseif data.keyInfo and data.keyInfo.expiresAt then
             expiryDate = data.keyInfo.expiresAt
         elseif data.expiresAt then
             expiryDate = data.expiresAt
+        elseif data.expiry then
+            expiryDate = data.expiry
         end
     end
 
@@ -84,7 +87,7 @@ if savedKey then
     end
 end
 
--- // 3. BUILD UI (With Custom Background) //
+-- // 3. BUILD UI (With Background Image) //
 
 if PlayerGui:FindFirstChild("PunkX_ModernUI") then
     PlayerGui["PunkX_ModernUI"]:Destroy()
@@ -110,7 +113,7 @@ TweenObj(Blur, {Size = 15}, 0.5)
 -- > Main Container
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 0, 0, 0) -- Start small
+MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0) -- Start size
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.BackgroundColor3 = UI_CONFIG.BgColor
@@ -125,15 +128,15 @@ Stroke.Color = Color3.fromRGB(50, 50, 55)
 Stroke.Thickness = 1.5
 Stroke.Transparency = 1
 
--- [[ NEW: BACKGROUND IMAGE ]] --
+-- [[ NEW: BACKGROUND IMAGE LOGIC ]] --
 local BgImage = Instance.new("ImageLabel", MainFrame)
-BgImage.Name = "CustomBackground"
+BgImage.Name = "Background"
 BgImage.Size = UDim2.new(1, 0, 1, 0)
 BgImage.BackgroundTransparency = 1
 BgImage.Image = UI_CONFIG.BackgroundImage
-BgImage.ScaleType = Enum.ScaleType.Crop -- Ensures it fills correctly without stretching
-BgImage.ImageTransparency = 0.2 -- Slight transparency to blend with dark mode
-BgImage.ZIndex = 1 -- Sits behind everything else
+BgImage.ScaleType = Enum.ScaleType.Crop -- Fills the UI nicely
+BgImage.ImageColor3 = Color3.fromRGB(150, 150, 150) -- Darkens image slightly so text pops
+BgImage.ZIndex = 1 -- Behind everything
 
 -- > Title Header
 local Title = Instance.new("TextLabel", MainFrame)
@@ -145,12 +148,12 @@ Title.Size = UDim2.new(0.6, 0, 0.25, 0)
 Title.BackgroundTransparency = 1
 Title.Position = UDim2.new(0.05, 0, 0.05, 0)
 Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.ZIndex = 2
+Title.ZIndex = 2 -- Above background
 
 local SubTitle = Instance.new("TextLabel", MainFrame)
 SubTitle.Text = "Authentication Required"
 SubTitle.Font = UI_CONFIG.FontRegular
-SubTitle.TextColor3 = Color3.fromRGB(200, 200, 200) -- Made brighter for visibility over image
+SubTitle.TextColor3 = Color3.fromRGB(200, 200, 200)
 SubTitle.TextSize = 14
 SubTitle.Size = UDim2.new(1, 0, 0.1, 0)
 SubTitle.BackgroundTransparency = 1
@@ -158,7 +161,7 @@ SubTitle.Position = UDim2.new(0.05, 0, 0.22, 0)
 SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 SubTitle.ZIndex = 2
 
--- > DISCORD BUTTON
+-- > DISCORD BUTTON (Text Button)
 local DiscordBtn = Instance.new("TextButton", MainFrame)
 DiscordBtn.Name = "DiscordBtn"
 DiscordBtn.Size = UDim2.new(0, 100, 0, 32)
@@ -178,7 +181,7 @@ InputContainer.Size = UDim2.new(0.85, 0, 0.22, 0)
 InputContainer.Position = UDim2.new(0.5, 0, 0.45, 0)
 InputContainer.AnchorPoint = Vector2.new(0.5, 0)
 InputContainer.BackgroundColor3 = UI_CONFIG.InputColor
-InputContainer.BackgroundTransparency = 0.2 -- Slightly see-through
+InputContainer.BackgroundTransparency = 0.2 -- Slightly see-through for image
 InputContainer.BorderSizePixel = 0
 InputContainer.ZIndex = 2
 Instance.new("UICorner", InputContainer).CornerRadius = UDim.new(0, 10)
@@ -212,7 +215,7 @@ local GetKeyBtn = Instance.new("TextButton", BtnContainer)
 GetKeyBtn.Size = UDim2.new(0.47, 0, 1, 0)
 GetKeyBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
 GetKeyBtn.Text = "Get Key"
-GetKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+GetKeyBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
 GetKeyBtn.Font = UI_CONFIG.Font
 GetKeyBtn.TextSize = 14
 GetKeyBtn.ZIndex = 3
@@ -241,7 +244,7 @@ StatusText.Font = Enum.Font.Gotham
 StatusText.TextSize = 11
 StatusText.ZIndex = 2
 
--- // 4. STARTUP ANIMATION (380x240) //
+-- // 4. STARTUP ANIMATION (Your Original Size) //
 
 TweenObj(MainFrame, {Size = UDim2.new(0, 380, 0, 240)}, 0.4) 
 TweenObj(Stroke, {Transparency = 0.5}, 0.8)
@@ -286,7 +289,7 @@ DiscordBtn.MouseButton1Click:Connect(function()
     TweenObj(DiscordBtn, {Size = UDim2.new(0, 100, 0, 32)}, 0.1)
     task.wait(2)
     StatusText.Text = "Status: Waiting for key"
-    StatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
+    StatusText.TextColor3 = Color3.fromRGB(100, 100, 100)
 end)
 
 GetKeyBtn.MouseButton1Click:Connect(function()
@@ -302,7 +305,7 @@ GetKeyBtn.MouseButton1Click:Connect(function()
     task.wait(1.5)
     GetKeyBtn.Text = "Get Key"
     StatusText.Text = "Status: Waiting for key"
-    StatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
+    StatusText.TextColor3 = Color3.fromRGB(100, 100, 100)
 end)
 
 RedeemBtn.MouseButton1Click:Connect(function()
