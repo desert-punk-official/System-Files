@@ -1,6 +1,6 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 7.5 (Final: Audio, Anti-AFK, Draggable, Secure, Ready for Public ID)
--- Features: gethui Support, Max Priority, Mobile Draggable, Sound Effects, Anti-AFK
+-- Version: 9.0 (God Mode: Paste Button, Custom Maintenance, Safe Load)
+-- Features: Paste Button, Custom Error, gethui, Max Priority, Draggable, Anti-AFK
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -16,21 +16,28 @@ local MainUI_URL   = "https://raw.githubusercontent.com/Silent-Caliber/System-Fi
 
 local UI_CONFIG = {
     Title = "PUNK X",
+    Version = "v9.0",
     AccentColor = Color3.fromRGB(0, 120, 255),
     BgColor = Color3.fromRGB(20, 20, 23),
     InputColor = Color3.fromRGB(30, 30, 35),
     DiscordColor = Color3.fromRGB(88, 101, 242),
+    CloseColor = Color3.fromRGB(255, 60, 60), 
     Font = Enum.Font.GothamBold,
     FontRegular = Enum.Font.GothamMedium,
     DiscordLink = "https://discord.gg/JxEjAtdgWD",
     
-    -- [ACTION REQUIRED]: Paste your NEW Public ID below!
-    -- The current one (8337...) is the local temporary one.
-    -- Go to the website, copy the ID of the image you uploaded, and paste it here.
+    -- [VERIFIED BACKGROUND ID]
     BackgroundImage = "rbxthumb://type=Asset&id=83372655709716&w=768&h=432"
 }
 
--- // SECURE PARENTING (gethui) //
+-- [SOUND CONFIG]
+local SOUNDS = {
+    Click   = 4590657391,
+    Success = 4590662766,
+    Error   = 4590659227
+}
+
+-- // SECURE PARENTING //
 local function GetSecureParent()
     if gethui then return gethui()
     elseif CoreGui:FindFirstChild("RobloxGui") then return CoreGui
@@ -55,7 +62,7 @@ local success, KeyLib = pcall(function()
 end)
 
 if not success or not KeyLib then
-    StarterGui:SetCore("SendNotification", {Title = "Punk X Error", Text = "Failed to load Key System.", Duration = 5})
+    StarterGui:SetCore("SendNotification", {Title = "Punk X Error", Text = "Connection Error. Check Internet.", Duration = 5})
     return
 end
 
@@ -63,8 +70,23 @@ end
 
 local function LaunchPunkX()
     getgenv().PUNK_X_AUTH_TOKEN = "9a2f-punk-x-8812-secure-v2-441b"
+    
     task.spawn(function()
-        loadstring(game:HttpGet(MainUI_URL))()
+        -- [SAFETY NET START]
+        local load_success, load_result = pcall(function()
+            return loadstring(game:HttpGet(MainUI_URL))()
+        end)
+
+        if not load_success then
+            PlaySound(SOUNDS.Error, 1)
+            StarterGui:SetCore("SendNotification", {
+                Title = "Punk X Error",
+                Text = "Failed to load Executor! (Maintenance?)", -- Custom Message
+                Duration = 5
+            })
+            warn("[PUNK X DEBUG]: " .. tostring(load_result))
+        end
+        -- [SAFETY NET END]
     end)
 end
 
@@ -122,7 +144,7 @@ ScreenGui.Name = "PunkX_ModernUI"
 ScreenGui.Parent = GetSecureParent()
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.ResetOnSpawn = false
-ScreenGui.DisplayOrder = 2147483647 -- MAX PRIORITY
+ScreenGui.DisplayOrder = 2147483647 
 ScreenGui.IgnoreGuiInset = true 
 
 local Blur = Instance.new("BlurEffect", game.Lighting)
@@ -147,7 +169,7 @@ Stroke.Color = Color3.fromRGB(50, 50, 55)
 Stroke.Thickness = 1.5
 Stroke.Transparency = 1
 
--- Background Image
+-- Background
 local BgImage = Instance.new("ImageLabel", MainFrame)
 BgImage.Name = "Background"
 BgImage.Size = UDim2.new(1, 0, 1, 0)
@@ -158,7 +180,7 @@ BgImage.ImageColor3 = Color3.fromRGB(150, 150, 150)
 BgImage.ZIndex = 1 
 Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 16)
 
--- UI Elements
+-- UI Text
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Text = UI_CONFIG.Title
 Title.Font = UI_CONFIG.Font
@@ -169,6 +191,19 @@ Title.BackgroundTransparency = 1
 Title.Position = UDim2.new(0.05, 0, 0.05, 0)
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.ZIndex = 2 
+
+-- Version Label
+local VerLabel = Instance.new("TextLabel", MainFrame)
+VerLabel.Text = UI_CONFIG.Version
+VerLabel.Font = UI_CONFIG.FontRegular
+VerLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
+VerLabel.TextSize = 10
+VerLabel.Size = UDim2.new(0, 50, 0, 20)
+VerLabel.BackgroundTransparency = 1
+VerLabel.Position = UDim2.new(0.95, 0, 0.95, 0)
+VerLabel.AnchorPoint = Vector2.new(1, 1)
+VerLabel.TextXAlignment = Enum.TextXAlignment.Right
+VerLabel.ZIndex = 2
 
 local SubTitle = Instance.new("TextLabel", MainFrame)
 SubTitle.Text = "Authentication Required"
@@ -181,6 +216,22 @@ SubTitle.Position = UDim2.new(0.05, 0, 0.22, 0)
 SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 SubTitle.ZIndex = 2
 
+-- Close Button
+local CloseBtn = Instance.new("TextButton", MainFrame)
+CloseBtn.Name = "CloseBtn"
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -10, 0, 10) 
+CloseBtn.AnchorPoint = Vector2.new(1, 0)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+CloseBtn.BackgroundTransparency = 0.5
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = UI_CONFIG.CloseColor
+CloseBtn.Font = UI_CONFIG.Font
+CloseBtn.TextSize = 16
+CloseBtn.ZIndex = 5
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
+
+-- Discord Button
 local DiscordBtn = Instance.new("TextButton", MainFrame)
 DiscordBtn.Name = "DiscordBtn"
 DiscordBtn.Size = UDim2.new(0, 100, 0, 32)
@@ -194,6 +245,7 @@ DiscordBtn.TextSize = 12
 DiscordBtn.ZIndex = 2
 Instance.new("UICorner", DiscordBtn).CornerRadius = UDim.new(0, 8)
 
+-- Input Area
 local InputContainer = Instance.new("Frame", MainFrame)
 InputContainer.Size = UDim2.new(0.85, 0, 0.22, 0)
 InputContainer.Position = UDim2.new(0.5, 0, 0.45, 0)
@@ -210,7 +262,7 @@ InputStroke.Thickness = 1
 InputStroke.Transparency = 0.8
 
 local KeyBox = Instance.new("TextBox", InputContainer)
-KeyBox.Size = UDim2.new(0.9, 0, 1, 0)
+KeyBox.Size = UDim2.new(0.8, 0, 1, 0) -- Made smaller to fit Paste Button
 KeyBox.Position = UDim2.new(0.05, 0, 0, 0)
 KeyBox.BackgroundTransparency = 1
 KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -220,6 +272,20 @@ KeyBox.Font = UI_CONFIG.FontRegular
 KeyBox.TextSize = 14
 KeyBox.TextXAlignment = Enum.TextXAlignment.Left
 KeyBox.ZIndex = 3
+KeyBox.ClearTextOnFocus = false
+
+-- [NEW] PASTE BUTTON
+local PasteBtn = Instance.new("TextButton", InputContainer)
+PasteBtn.Size = UDim2.new(0.15, 0, 0.8, 0)
+PasteBtn.Position = UDim2.new(0.98, 0, 0.5, 0)
+PasteBtn.AnchorPoint = Vector2.new(1, 0.5)
+PasteBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+PasteBtn.Text = "PASTE"
+PasteBtn.TextColor3 = UI_CONFIG.AccentColor
+PasteBtn.Font = UI_CONFIG.Font
+PasteBtn.TextSize = 9
+PasteBtn.ZIndex = 4
+Instance.new("UICorner", PasteBtn).CornerRadius = UDim.new(0, 6)
 
 local BtnContainer = Instance.new("Frame", MainFrame)
 BtnContainer.Size = UDim2.new(0.85, 0, 0.18, 0)
@@ -272,6 +338,8 @@ local function AddButtonEffects(btn)
 end
 AddButtonEffects(GetKeyBtn)
 AddButtonEffects(RedeemBtn)
+AddButtonEffects(CloseBtn)
+AddButtonEffects(PasteBtn)
 
 KeyBox.Focused:Connect(function()
     TweenObj(InputStroke, {Transparency = 0, Color = UI_CONFIG.AccentColor})
@@ -282,10 +350,37 @@ KeyBox.FocusLost:Connect(function()
     TweenObj(InputContainer, {BackgroundColor3 = UI_CONFIG.InputColor})
 end)
 
--- // 5. BUTTON LOGIC (WITH SOUNDS) //
+-- // 5. LOGIC //
+
+-- [NEW] PASTE BUTTON LOGIC
+PasteBtn.MouseButton1Click:Connect(function()
+    if getclipboard then
+        local clip = getclipboard()
+        if clip and clip ~= "" then
+            KeyBox.Text = clip -- Fills box instantly
+            PlaySound(SOUNDS.Click, 0.6)
+        else
+            StatusText.Text = "Clipboard Empty!"
+            StatusText.TextColor3 = Color3.fromRGB(255, 100, 100)
+            PlaySound(SOUNDS.Error, 0.5)
+        end
+    else
+        StatusText.Text = "Not Supported!"
+        PlaySound(SOUNDS.Error, 0.5)
+    end
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    PlaySound(SOUNDS.Error, 0.5)
+    TweenObj(Blur, {Size = 0}, 0.5)
+    TweenObj(MainFrame, {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}, 0.4)
+    task.wait(0.5)
+    Blur:Destroy()
+    ScreenGui:Destroy()
+end)
 
 DiscordBtn.MouseButton1Click:Connect(function()
-    PlaySound(6895079853, 0.5) 
+    PlaySound(SOUNDS.Click, 0.5) 
     if setclipboard then
         setclipboard(UI_CONFIG.DiscordLink)
         StatusText.Text = "Discord Invite Copied!"
@@ -300,7 +395,7 @@ DiscordBtn.MouseButton1Click:Connect(function()
 end)
 
 GetKeyBtn.MouseButton1Click:Connect(function()
-    PlaySound(6895079853, 0.5)
+    PlaySound(SOUNDS.Click, 0.5)
     if setclipboard then
         setclipboard(KeyLib.GetKeyURL())
         GetKeyBtn.Text = "Copied!"
@@ -320,27 +415,27 @@ RedeemBtn.MouseButton1Click:Connect(function()
     StatusText.Text = "Checking..."
     StatusText.TextColor3 = Color3.fromRGB(255, 200, 50)
     
-    local key = KeyBox.Text
+    -- [AUTO-TRIM] Removes spaces and newlines
+    local key = KeyBox.Text:gsub("%s+", "") 
     local valid, data = KeyLib.Validate(key)
     
     if valid then
-        PlaySound(6000289139, 1) -- SUCCESS
+        PlaySound(SOUNDS.Success, 1)
         StatusText.Text = "Success!"
         StatusText.TextColor3 = Color3.fromRGB(50, 255, 100)
         
-        -- Close UI
         TweenObj(Blur, {Size = 0}, 0.5)
         TweenObj(MainFrame, {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}, 0.4)
         task.wait(0.5)
         Blur:Destroy()
         ScreenGui:Destroy()
         
-        -- Launch
         OnKeyVerified(data)
     else
-        PlaySound(6000293813, 0.8) -- ERROR
+        PlaySound(SOUNDS.Error, 0.8)
         StatusText.Text = "Invalid Key"
         StatusText.TextColor3 = Color3.fromRGB(255, 80, 80)
+        KeyBox.Text = "" 
     end
 end)
 
