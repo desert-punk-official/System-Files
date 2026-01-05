@@ -1,10 +1,9 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 7.0 (Image Background Fixed)
--- Features: Custom Background, Discord Button, Expiry Fix, Auto-Login
+-- Version: 7.1 (Fixed Background & Corners)
+-- Features: Custom Background, Rounded Edges Fixed, Discord Button, Expiry Fix
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local HttpService = game:GetService("HttpService")
 local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -22,7 +21,8 @@ local UI_CONFIG = {
     Font = Enum.Font.GothamBold,
     FontRegular = Enum.Font.GothamMedium,
     DiscordLink = "https://discord.gg/JxEjAtdgWD",
-    BackgroundImage = "rbxassetid://83372655709716" -- [[ YOUR CUSTOM IMAGE ]]
+    -- [[ FIXED ID USING THUMBNAIL LOADER ]]
+    BackgroundImage = "rbxthumb://type=Asset&id=83372655709716&w=768&h=432"
 }
 
 -- // 1. LOAD KEY LIBRARY //
@@ -54,7 +54,6 @@ local function OnKeyVerified(data)
     local expiryDate = "Active"
     
     if data then
-        -- Date Logic (Key_Information fix included)
         if data.Key_Information and data.Key_Information.expiresAt then
             expiryDate = data.Key_Information.expiresAt
         elseif data.keyInfo and data.keyInfo.expiresAt then
@@ -87,7 +86,7 @@ if savedKey then
     end
 end
 
--- // 3. BUILD UI (With Background Image) //
+-- // 3. BUILD UI //
 
 if PlayerGui:FindFirstChild("PunkX_ModernUI") then
     PlayerGui["PunkX_ModernUI"]:Destroy()
@@ -118,7 +117,7 @@ MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.BackgroundColor3 = UI_CONFIG.BgColor
 MainFrame.BorderSizePixel = 0
-MainFrame.ClipsDescendants = true
+MainFrame.ClipsDescendants = false -- Set to false so Stroke isn't cut off, Image will be rounded separately
 
 local Corner = Instance.new("UICorner", MainFrame)
 Corner.CornerRadius = UDim.new(0, 16)
@@ -128,15 +127,19 @@ Stroke.Color = Color3.fromRGB(50, 50, 55)
 Stroke.Thickness = 1.5
 Stroke.Transparency = 1
 
--- [[ NEW: BACKGROUND IMAGE LOGIC ]] --
+-- [[ BACKGROUND IMAGE LOGIC ]] --
 local BgImage = Instance.new("ImageLabel", MainFrame)
 BgImage.Name = "Background"
 BgImage.Size = UDim2.new(1, 0, 1, 0)
 BgImage.BackgroundTransparency = 1
 BgImage.Image = UI_CONFIG.BackgroundImage
-BgImage.ScaleType = Enum.ScaleType.Crop -- Fills the UI nicely
-BgImage.ImageColor3 = Color3.fromRGB(150, 150, 150) -- Darkens image slightly so text pops
-BgImage.ZIndex = 1 -- Behind everything
+BgImage.ScaleType = Enum.ScaleType.Crop 
+BgImage.ImageColor3 = Color3.fromRGB(150, 150, 150) 
+BgImage.ZIndex = 1 
+
+-- [[ FIX: ADDED UICORNER TO IMAGE TO FIX EDGES ]] --
+local BgCorner = Instance.new("UICorner", BgImage)
+BgCorner.CornerRadius = UDim.new(0, 16) -- Matches MainFrame Corner
 
 -- > Title Header
 local Title = Instance.new("TextLabel", MainFrame)
@@ -148,7 +151,7 @@ Title.Size = UDim2.new(0.6, 0, 0.25, 0)
 Title.BackgroundTransparency = 1
 Title.Position = UDim2.new(0.05, 0, 0.05, 0)
 Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.ZIndex = 2 -- Above background
+Title.ZIndex = 2 
 
 local SubTitle = Instance.new("TextLabel", MainFrame)
 SubTitle.Text = "Authentication Required"
@@ -161,7 +164,7 @@ SubTitle.Position = UDim2.new(0.05, 0, 0.22, 0)
 SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 SubTitle.ZIndex = 2
 
--- > DISCORD BUTTON (Text Button)
+-- > DISCORD BUTTON
 local DiscordBtn = Instance.new("TextButton", MainFrame)
 DiscordBtn.Name = "DiscordBtn"
 DiscordBtn.Size = UDim2.new(0, 100, 0, 32)
@@ -181,7 +184,7 @@ InputContainer.Size = UDim2.new(0.85, 0, 0.22, 0)
 InputContainer.Position = UDim2.new(0.5, 0, 0.45, 0)
 InputContainer.AnchorPoint = Vector2.new(0.5, 0)
 InputContainer.BackgroundColor3 = UI_CONFIG.InputColor
-InputContainer.BackgroundTransparency = 0.2 -- Slightly see-through for image
+InputContainer.BackgroundTransparency = 0.2 
 InputContainer.BorderSizePixel = 0
 InputContainer.ZIndex = 2
 Instance.new("UICorner", InputContainer).CornerRadius = UDim.new(0, 10)
@@ -244,7 +247,7 @@ StatusText.Font = Enum.Font.Gotham
 StatusText.TextSize = 11
 StatusText.ZIndex = 2
 
--- // 4. STARTUP ANIMATION (Your Original Size) //
+-- // 4. STARTUP ANIMATION //
 
 TweenObj(MainFrame, {Size = UDim2.new(0, 380, 0, 240)}, 0.4) 
 TweenObj(Stroke, {Transparency = 0.5}, 0.8)
