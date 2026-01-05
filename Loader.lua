@@ -1,4 +1,4 @@
--- // Punk X Loader (Final Integration) //
+-- // Punk X Loader (Final Integration - DEBUG MODE) //
 -- UI Source: Design Tester v2 (Text Button Discord)
 -- Logic Source: Auth.lua + Main.lua
 
@@ -19,7 +19,6 @@ local success, KeyLib = pcall(function()
 end)
 
 if not success or not KeyLib then
-    -- Fallback error UI
     local err = Instance.new("ScreenGui", PlayerGui)
     local t = Instance.new("TextLabel", err)
     t.Size = UDim2.new(1,0,0.1,0)
@@ -39,9 +38,23 @@ local function LaunchPunkX()
     end)
 end
 
+-- [[ UPDATED FUNCTION START ]] --
 local function OnKeyVerified(data)
-    -- Expiry Logic
-    local expiryDate = "Active"
+    
+    -- 1. DEBUG PRINT (Check F9 Console!)
+    print("----------------------------------------")
+    print("[PUNK X] INCOMING KEY DATA:")
+    if data then
+        -- This prints the entire JSON so you can see the field name
+        print(HttpService:JSONEncode(data))
+    else
+        warn("[PUNK X] DATA IS NIL! (Auth.lua issue)")
+    end
+    print("----------------------------------------")
+
+    -- 2. Attempt to find the date
+    local expiryDate = "Active" -- Default fallback
+    
     if data then
         if data.keyInfo and data.keyInfo.expiresAt then
             expiryDate = data.keyInfo.expiresAt
@@ -49,6 +62,10 @@ local function OnKeyVerified(data)
             expiryDate = data.expiresAt
         elseif data.expiry then
             expiryDate = data.expiry
+        elseif data.exp then
+            expiryDate = data.exp
+        elseif data.expiration then
+            expiryDate = data.expiration
         end
     end
 
@@ -56,12 +73,13 @@ local function OnKeyVerified(data)
 
     StarterGui:SetCore("SendNotification", {
         Title = "Punk X",
-        Text = "Welcome back! Loading...",
-        Duration = 3
+        Text = "Launched! Check F9 if date is missing.",
+        Duration = 5
     })
     
     LaunchPunkX()
 end
+-- [[ UPDATED FUNCTION END ]] --
 
 -- // 2. CHECK AUTO-LOGIN //
 local savedKey = KeyLib.GetSavedKey()
@@ -279,7 +297,7 @@ GetKeyBtn.MouseButton1Click:Connect(function()
     if setclipboard then
         setclipboard(KeyLib.GetKeyURL())
         GetKeyBtn.Text = "Copied!"
-        StatusText.Text = "Key Link copied to clipboard"
+        StatusText.Text = "Key Link copied!"
         StatusText.TextColor3 = Color3.fromRGB(0, 255, 150)
     else
         StatusText.Text = "Check Console (F9)"
