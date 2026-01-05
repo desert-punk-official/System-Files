@@ -1,6 +1,6 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 11.0 (The Clean Build)
--- Features: Paste, Shake Error, Rainbow Border, Safe Load, No Bloat
+-- Version: 12.0 (Professional Polish: Slide Animation, Fixed Sound, Clean UI)
+-- Features: Paste, Shake Error, Slide-Out Close, Safe Load, Anti-AFK
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -17,8 +17,8 @@ local MainUI_URL   = "https://raw.githubusercontent.com/Silent-Caliber/System-Fi
 
 local UI_CONFIG = {
     Title = "PUNK X",
-    Version = "v11.0",
-    AccentColor = Color3.fromRGB(0, 120, 255),
+    Version = "v12.0",
+    AccentColor = Color3.fromRGB(0, 120, 255), -- Clean Electric Blue
     BgColor = Color3.fromRGB(20, 20, 23),
     InputColor = Color3.fromRGB(30, 30, 35),
     DiscordColor = Color3.fromRGB(88, 101, 242),
@@ -30,11 +30,11 @@ local UI_CONFIG = {
     BackgroundImage = "rbxthumb://type=Asset&id=83372655709716&w=768&h=432"
 }
 
--- [SOUND CONFIG]
+-- [SOUND CONFIG] (Fixed Error Sound)
 local SOUNDS = {
     Click   = 4590657391,
     Success = 4590662766,
-    Error   = 4590659227
+    Error   = 550209561 -- Classic Error Bleep (Reliable)
 }
 
 -- // SECURE PARENTING //
@@ -179,29 +179,9 @@ MakeDraggable(MainFrame)
 
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 16)
 local Stroke = Instance.new("UIStroke", MainFrame)
-Stroke.Color = Color3.fromRGB(255, 255, 255)
-Stroke.Thickness = 2
-Stroke.Transparency = 0
-
--- RAINBOW GRADIENT (Border Only - Looks Cleanest)
-local RainbowGradient = Instance.new("UIGradient", Stroke)
-RainbowGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0.00, Color3.fromHSV(0.0, 1, 1)),
-    ColorSequenceKeypoint.new(0.20, Color3.fromHSV(0.2, 1, 1)),
-    ColorSequenceKeypoint.new(0.40, Color3.fromHSV(0.4, 1, 1)),
-    ColorSequenceKeypoint.new(0.60, Color3.fromHSV(0.6, 1, 1)),
-    ColorSequenceKeypoint.new(0.80, Color3.fromHSV(0.8, 1, 1)),
-    ColorSequenceKeypoint.new(1.00, Color3.fromHSV(1.0, 1, 1))
-}
--- Spin the gradient
-task.spawn(function()
-    local rotation = 0
-    while MainFrame.Parent do
-        rotation = rotation + 1
-        RainbowGradient.Rotation = rotation
-        task.wait(0.02)
-    end
-end)
+Stroke.Color = UI_CONFIG.AccentColor -- MATCHING THEME (Clean Blue)
+Stroke.Thickness = 1.5
+Stroke.Transparency = 1
 
 -- Background
 local BgImage = Instance.new("ImageLabel", MainFrame)
@@ -214,7 +194,7 @@ BgImage.ImageColor3 = Color3.fromRGB(150, 150, 150)
 BgImage.ZIndex = 1 
 Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 16)
 
--- TITLE TEXT (Clean White)
+-- TITLE TEXT
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Text = UI_CONFIG.Title
 Title.Font = UI_CONFIG.Font
@@ -289,6 +269,7 @@ KeyBox.TextSize = 14
 KeyBox.TextXAlignment = Enum.TextXAlignment.Left
 KeyBox.ZIndex = 3
 KeyBox.ClearTextOnFocus = false
+KeyBox.Text = "" -- [FIX] Ensures placeholder shows!
 
 local PasteBtn = Instance.new("TextButton", InputContainer)
 PasteBtn.Size = UDim2.new(0.15, 0, 0.8, 0)
@@ -343,7 +324,7 @@ StatusText.ZIndex = 2
 
 -- // 4. ANIMATIONS //
 TweenObj(MainFrame, {Size = UDim2.new(0, 380, 0, 240)}, 0.4) 
-TweenObj(Stroke, {Transparency = 0}, 0.8)
+TweenObj(Stroke, {Transparency = 0.5}, 0.8) -- Fade in Clean Blue Border
 
 local function AddButtonEffects(btn)
     btn.MouseEnter:Connect(function() TweenObj(btn, {BackgroundTransparency = 0.2}) end)
@@ -428,9 +409,13 @@ RedeemBtn.MouseButton1Click:Connect(function()
         StatusText.Text = "Success!"
         StatusText.TextColor3 = Color3.fromRGB(50, 255, 100)
         
+        -- [FIXED ANIMATION] SLIDE DOWN OFF SCREEN (Clean!)
         TweenObj(Blur, {Size = 0}, 0.5)
-        TweenObj(MainFrame, {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}, 0.4)
-        task.wait(0.5)
+        TweenObj(MainFrame, {
+            Position = UDim2.new(0.5, 0, 1.5, 0) -- Drops down
+        }, 0.6)
+        
+        task.wait(0.6)
         Blur:Destroy()
         ScreenGui:Destroy()
         
