@@ -101,7 +101,7 @@ end
 -- // HELPER FUNCTIONS //
 
 local function LaunchPunkX()
-    getgenv().PUNK_X_KEY = savedKey  -- Pass the real key
+    getgenv().PUNK_X_AUTH_TOKEN = "9a2f-punk-x-8812-secure-v2-441b"
     task.spawn(function()
         local load_success, load_result = pcall(function()
             return loadstring(game:HttpGet(MainUI_URL))()
