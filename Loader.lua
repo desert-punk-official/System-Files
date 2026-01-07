@@ -1,5 +1,5 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 18.3 (Original Formatting + Fixes)
+-- Version: 18.0 (Original UI + Fixed Logic + Dev Menu)
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -19,10 +19,9 @@ local KeyLogic_URL = "https://raw.githubusercontent.com/Silent-Caliber/System-Fi
 local Main_URL     = "https://raw.githubusercontent.com/Silent-Caliber/System-Files/main/Main.lua?t="..tostring(os.time())
 local Beta_URL     = "https://raw.githubusercontent.com/GBMofo/System-Files/main/Beta.lua?t="..tostring(os.time())
 
-
 local UI_CONFIG = {
     Title = "PUNK X",
-    Version = "v18.3",
+    Version = "v18.0",
     AccentColor = Color3.fromRGB(0, 120, 255),
     BgColor = Color3.fromRGB(20, 20, 23),
     InputColor = Color3.fromRGB(30, 30, 35),
@@ -30,7 +29,6 @@ local UI_CONFIG = {
     Font = Enum.Font.GothamBold,
     FontRegular = Enum.Font.GothamMedium,
     DiscordLink = "https://discord.gg/JxEjAtdgWD",
-    -- [[ FIXED: Missing Background Image Added Below ]] --
     BackgroundImage = "rbxthumb://type=Asset&id=83372655709716&w=768&h=432",
     IconImage = "rbxthumb://type=Asset&id=128877949924034&w=150&h=150"
 }
@@ -86,11 +84,6 @@ local function ShakeUI(guiObject)
     TweenService:Create(guiObject, TweenInfo.new(duration), {Position = originalPos}):Play()
 end
 
--- // TWEEN HELPER (Restored from your version) //
-local function TweenObj(obj, props, time)
-    TweenService:Create(obj, TweenInfo.new(time or 0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), props):Play()
-end
-
 Notify("Punk X", "Initializing... Checking Resources")
 
 -- // 1. LOAD KEY LIBRARY //
@@ -99,7 +92,7 @@ local success, KeyLib = pcall(function()
 end)
 
 if not success or not KeyLib then
-    Notify("Punk X Error", "Connection Error (Auth Lib)")
+    Notify("Punk X Error", "Connection Error (Auth Lib)", 5)
     return
 end
 
@@ -161,6 +154,10 @@ for _, v in pairs(GetSecureParent():GetChildren()) do
     if v.Name == "PunkX_ModernUI" then v:Destroy() end
 end
 
+local function TweenObj(obj, props, time)
+    TweenService:Create(obj, TweenInfo.new(time or 0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), props):Play()
+end
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "PunkX_ModernUI"
 ScreenGui.Parent = GetSecureParent()
@@ -174,10 +171,9 @@ Blur.Name = "PunkX_Blur"
 Blur.Size = 0 
 TweenObj(Blur, {Size = 15}, 0.5)
 
--- Main Frame (Hidden by default for Ghost Mode)
+-- Main Frame
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Name = "MainFrame"
-MainFrame.Visible = false -- [[ GHOST MODE ]]
 MainFrame.Size = UDim2.new(0, 0, 0, 0) -- Start Tiny
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -338,7 +334,7 @@ StatusText.Font = Enum.Font.Gotham
 StatusText.TextSize = 11
 StatusText.ZIndex = 2
 
--- [[ HIDDEN DEV MENU ]] --
+-- [[ HIDDEN DEV MENU (Matches your UI Style) ]] --
 local DevContainer = Instance.new("Frame", MainFrame)
 DevContainer.Size = UDim2.new(0.85, 0, 0.4, 0)
 DevContainer.Position = UDim2.new(1.5, 0, 0.45, 0) -- Hidden off screen
@@ -367,20 +363,8 @@ BetaBtn.TextSize = 14
 Instance.new("UICorner", BetaBtn).CornerRadius = UDim.new(0, 8)
 
 -- // 4. ANIMATIONS //
-local function OpenLoader()
-    MainFrame.Visible = true
-    TweenObj(Blur, {Size = 15}, 0.5)
-    TweenObj(MainFrame, {Size = UDim2.new(0.5, 0, 0.45, 0)}, 0.4) 
-    TweenObj(Stroke, {Transparency = 0.5}, 0.8) 
-end
-
-local function CloseLoader()
-    TweenObj(Blur, {Size = 0}, 0.5)
-    TweenObj(MainFrame, {Position = UDim2.new(0.5, 0, 1.5, 0)}, 0.6)
-    task.wait(0.6)
-    Blur:Destroy()
-    ScreenGui:Destroy()
-end
+TweenObj(MainFrame, {Size = UDim2.new(0.5, 0, 0.45, 0)}, 0.4) 
+TweenObj(Stroke, {Transparency = 0.5}, 0.8) 
 
 local function AddButtonEffects(btn)
     btn.MouseEnter:Connect(function() TweenObj(btn, {BackgroundTransparency = 0.2}) end)
@@ -427,11 +411,22 @@ MakeDraggable(MainFrame)
 
 -- // FUNCTIONS //
 
+-- Transitions
 local function ShowDevMenu()
     SubTitle.Text = "Select Environment"
+    -- Slide Input/Buttons Out Left
     TweenObj(InputContainer, {Position = UDim2.new(-0.5, 0, 0.45, 0)}, 0.5)
     TweenObj(BtnContainer, {Position = UDim2.new(-0.5, 0, 0.75, 0)}, 0.5)
+    -- Slide Dev Menu In
     TweenObj(DevContainer, {Position = UDim2.new(0.5, 0, 0.45, 0)}, 0.5)
+end
+
+local function CloseLoader()
+    TweenObj(Blur, {Size = 0}, 0.5)
+    TweenObj(MainFrame, {Position = UDim2.new(0.5, 0, 1.5, 0)}, 0.6)
+    task.wait(0.6)
+    Blur:Destroy()
+    ScreenGui:Destroy()
 end
 
 -- Button Logic
@@ -510,48 +505,40 @@ RedeemBtn.MouseButton1Click:Connect(function()
     end
 
     -- [NORMAL USERS]
-    -- Safe call to prevent freezing if Panda is down
-    local success, valid, data = pcall(function() return KeyLib.Validate(key) end)
-    
-    if success and valid then
+    local valid, data = KeyLib.Validate(key)
+    if valid then
         PlaySound(SOUNDS.Success, 1)
         StatusText.Text = "Success!"
         StatusText.TextColor3 = Color3.fromRGB(50, 255, 100)
         CloseLoader()
-        OnKeyVerified(valid, key) -- Pass valid (data) not data
+        OnKeyVerified(data, key)
     else
         PlaySound(SOUNDS.Error, 0.8)
-        StatusText.Text = (success and "Invalid Key" or "Connection Error")
+        StatusText.Text = "Invalid Key"
         StatusText.TextColor3 = Color3.fromRGB(255, 80, 80)
         KeyBox.Text = "" 
         ShakeUI(InputContainer) 
         isChecking = false
-        RedeemBtn.Text = "Redeem"
     end
 end)
 
 -- // 6. AUTO-LOGIN CHECK //
-local autoLogged = false
 local saved = KeyLib.GetSavedKey()
-
 if saved then
     if saved == SECRET_DEV_KEY then
-        OpenLoader() -- Must open to show dev menu
+        -- Auto-show menu if dev
         KeyBox.Text = saved
         ShowDevMenu()
-        autoLogged = true
     else
-        local success, valid, data = pcall(function() return KeyLib.Validate(saved) end)
-        if success and valid then 
-            autoLogged = true
-            OnKeyVerified(valid, saved)
+        -- Auto-load public if normal user
+        local valid, data = KeyLib.Validate(saved)
+        if valid then 
+            getgenv().PUNK_X_EXPIRY = (data and data.Key_Information and data.Key_Information.expiresAt) or "Active"
+            Notify("Punk X", "Welcome Back!")
+            LaunchPunkX(saved, Main_URL)
+            CloseLoader()
         end
     end
-end
-
--- Only Show Loader if Auto-Login Failed/Skipped
-if not autoLogged then
-    OpenLoader()
 end
 
 -- // 7. ANTI-AFK //
