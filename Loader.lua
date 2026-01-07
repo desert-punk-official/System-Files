@@ -1,6 +1,5 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 16.2 (Efficient: No FPS Force, Battery Safe, Asset Preload)
--- Features: Paste, Shake Error, Slide Anim, Safe Load, Mobile Optimized
+-- Version: 16.6 (Your UI + My Fixes)
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -13,12 +12,12 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 -- [1] CONFIGURATION
-local KeyLogic_URL = "https://raw.githubusercontent.com/Silent-Caliber/System-Files/refs/heads/main/Auth.lua" 
-local MainUI_URL   = "https://raw.githubusercontent.com/Silent-Caliber/System-Files/refs/heads/main/Main.lua"
+local KeyLogic_URL = "https://raw.githubusercontent.com/Silent-Caliber/System-Files/main/Auth.lua?t="..tostring(os.time())
+local MainUI_URL   = "https://raw.githubusercontent.com/Silent-Caliber/System-Files/main/Main.lua?t="..tostring(os.time())
 
 local UI_CONFIG = {
     Title = "PUNK X",
-    Version = "",
+    Version = "v16.6",
     AccentColor = Color3.fromRGB(0, 120, 255),
     BgColor = Color3.fromRGB(20, 20, 23),
     InputColor = Color3.fromRGB(30, 30, 35),
@@ -26,11 +25,7 @@ local UI_CONFIG = {
     Font = Enum.Font.GothamBold,
     FontRegular = Enum.Font.GothamMedium,
     DiscordLink = "https://discord.gg/JxEjAtdgWD",
-    
-    -- [BACKGROUND] (Original ID)
     BackgroundImage = "rbxthumb://type=Asset&id=83372655709716&w=768&h=432",
-    
-    -- [ICON] (New ID)
     IconImage = "rbxthumb://type=Asset&id=128877949924034&w=150&h=150"
 }
 
@@ -100,8 +95,13 @@ end
 
 -- // HELPER FUNCTIONS //
 
-local function LaunchPunkX()
-    getgenv().PUNK_X_AUTH_TOKEN = "9a2f-punk-x-8812-secure-v2-441b"
+local function LaunchPunkX(passedKey)
+    -- [CRITICAL FIX] Save Key to BOTH environments so Main UI can find it
+    getgenv().PUNK_X_KEY = passedKey
+    _G.PUNK_X_KEY = passedKey 
+    
+    print("[PUNK X] Loader passing key:", passedKey)
+
     task.spawn(function()
         local load_success, load_result = pcall(function()
             return loadstring(game:HttpGet(MainUI_URL))()
@@ -114,7 +114,7 @@ local function LaunchPunkX()
     end)
 end
 
-local function OnKeyVerified(data)
+local function OnKeyVerified(data, keyUsed)
     local expiryDate = "Active"
     if data then
         if data.Key_Information and data.Key_Information.expiresAt then expiryDate = data.Key_Information.expiresAt
@@ -122,7 +122,7 @@ local function OnKeyVerified(data)
     end
     getgenv().PUNK_X_EXPIRY = expiryDate
     Notify("Punk X", "Access Granted! Loading...", 3)
-    LaunchPunkX()
+    LaunchPunkX(keyUsed)
 end
 
 -- // DRAGGABLE LOGIC //
@@ -150,10 +150,13 @@ end
 local savedKey = KeyLib.GetSavedKey()
 if savedKey then
     local valid, data = KeyLib.Validate(savedKey)
-    if valid then OnKeyVerified(data) return end
+    if valid then 
+        OnKeyVerified(data, savedKey) -- Fixed: Passing saved key
+        return 
+    end
 end
 
--- // 3. BUILD UI //
+-- // 3. BUILD UI (Your Preferred Design) //
 
 for _, v in pairs(GetSecureParent():GetChildren()) do
     if v.Name == "PunkX_ModernUI" then v:Destroy() end
@@ -433,7 +436,7 @@ RedeemBtn.MouseButton1Click:Connect(function()
         Blur:Destroy()
         ScreenGui:Destroy()
         
-        OnKeyVerified(data)
+        OnKeyVerified(data, key) -- Fixed: Passing key here
     else
         PlaySound(SOUNDS.Error, 0.8)
         StatusText.Text = "Invalid Key"
