@@ -1,5 +1,6 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 16.4 (Fixed URLs & Key Logic)
+-- Version: 16.2 (Efficient: No FPS Force, Battery Safe, Asset Preload)
+-- Features: Paste, Shake Error, Slide Anim, Safe Load, Mobile Optimized
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -11,14 +12,13 @@ local VirtualUser = game:GetService("VirtualUser")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
--- [1] CONFIGURATION (Fixed URLs)
--- Using the standard raw GitHub format
-local KeyLogic_URL = "https://raw.githubusercontent.com/Silent-Caliber/System-Files/main/Auth.lua" 
-local MainUI_URL   = "https://raw.githubusercontent.com/Silent-Caliber/System-Files/main/Main.lua"
+-- [1] CONFIGURATION
+local KeyLogic_URL = "https://raw.githubusercontent.com/Silent-Caliber/System-Files/refs/heads/main/Auth.lua" 
+local MainUI_URL   = "https://raw.githubusercontent.com/Silent-Caliber/System-Files/refs/heads/main/Main.lua"
 
 local UI_CONFIG = {
     Title = "PUNK X",
-    Version = "v16.4",
+    Version = "",
     AccentColor = Color3.fromRGB(0, 120, 255),
     BgColor = Color3.fromRGB(20, 20, 23),
     InputColor = Color3.fromRGB(30, 30, 35),
@@ -26,7 +26,11 @@ local UI_CONFIG = {
     Font = Enum.Font.GothamBold,
     FontRegular = Enum.Font.GothamMedium,
     DiscordLink = "https://discord.gg/JxEjAtdgWD",
+    
+    -- [BACKGROUND] (Original ID)
     BackgroundImage = "rbxthumb://type=Asset&id=83372655709716&w=768&h=432",
+    
+    -- [ICON] (New ID)
     IconImage = "rbxthumb://type=Asset&id=128877949924034&w=150&h=150"
 }
 
@@ -90,27 +94,27 @@ local success, KeyLib = pcall(function()
 end)
 
 if not success or not KeyLib then
-    Notify("Punk X Error", "Failed to load Auth Library.", 5)
+    Notify("Punk X Error", "Connection Error.", 5)
     return
 end
 
 -- // HELPER FUNCTIONS //
 
-local function LaunchPunkX(passedKey)
-    getgenv().PUNK_X_KEY = passedKey -- Critical Fix: Passes the key to the Main UI
+local function LaunchPunkX()
+    getgenv().PUNK_X_AUTH_TOKEN = "9a2f-punk-x-8812-secure-v2-441b"
     task.spawn(function()
         local load_success, load_result = pcall(function()
             return loadstring(game:HttpGet(MainUI_URL))()
         end)
         if not load_success then
             PlaySound(SOUNDS.Error, 1)
-            Notify("Punk X Error", "Failed to load Main UI from GitHub!", 5)
+            Notify("Punk X Error", "Failed to load Executor! (Maintenance?)", 5)
             warn("[PUNK X DEBUG]: " .. tostring(load_result))
         end
     end)
 end
 
-local function OnKeyVerified(data, keyUsed)
+local function OnKeyVerified(data)
     local expiryDate = "Active"
     if data then
         if data.Key_Information and data.Key_Information.expiresAt then expiryDate = data.Key_Information.expiresAt
@@ -118,7 +122,7 @@ local function OnKeyVerified(data, keyUsed)
     end
     getgenv().PUNK_X_EXPIRY = expiryDate
     Notify("Punk X", "Access Granted! Loading...", 3)
-    LaunchPunkX(keyUsed)
+    LaunchPunkX()
 end
 
 -- // DRAGGABLE LOGIC //
@@ -146,10 +150,7 @@ end
 local savedKey = KeyLib.GetSavedKey()
 if savedKey then
     local valid, data = KeyLib.Validate(savedKey)
-    if valid then 
-        OnKeyVerified(data, savedKey)
-        return 
-    end
+    if valid then OnKeyVerified(data) return end
 end
 
 -- // 3. BUILD UI //
@@ -432,8 +433,7 @@ RedeemBtn.MouseButton1Click:Connect(function()
         Blur:Destroy()
         ScreenGui:Destroy()
         
-        -- Pass the key to the success handler
-        OnKeyVerified(data, key)
+        OnKeyVerified(data)
     else
         PlaySound(SOUNDS.Error, 0.8)
         StatusText.Text = "Invalid Key"
