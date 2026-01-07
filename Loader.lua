@@ -1,14 +1,11 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 18.0 (Original UI + Fixed Logic + Dev Menu)
+-- Version: 18.1 (Ghost Mode & Anti-Freeze Fix)
 
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
-local ContentProvider = game:GetService("ContentProvider")
-local VirtualUser = game:GetService("VirtualUser") 
-local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
 -- [1] CONFIGURATION
@@ -21,67 +18,55 @@ local Beta_URL     = "https://raw.githubusercontent.com/GBMofo/System-Files/main
 
 local UI_CONFIG = {
     Title = "PUNK X",
-    Version = "v18.0",
     AccentColor = Color3.fromRGB(0, 120, 255),
     BgColor = Color3.fromRGB(20, 20, 23),
     InputColor = Color3.fromRGB(30, 30, 35),
-    DiscordColor = Color3.fromRGB(88, 101, 242),
-    Font = Enum.Font.GothamBold,
-    FontRegular = Enum.Font.GothamMedium,
-    DiscordLink = "https://discord.gg/JxEjAtdgWD",
-    BackgroundImage = "rbxthumb://type=Asset&id=83372655709716&w=768&h=432",
-    IconImage = "rbxthumb://type=Asset&id=128877949924034&w=150&h=150"
+    IconImage = "rbxthumb://type=Asset&id=128877949924034&w=150&h=150",
+    Font = Enum.Font.GothamBold
 }
 
--- [SOUND CONFIG]
-local SOUNDS = {
-    Click   = 4590657391,
-    Success = 4590662766,
-    Error   = 550209561
-}
+local SOUNDS = { Click = 4590657391, Success = 4590662766, Error = 550209561 }
 
--- // SECURE PARENTING //
+-- // HELPER FUNCTIONS //
 local function GetSecureParent()
     if gethui then return gethui()
     elseif CoreGui:FindFirstChild("RobloxGui") then return CoreGui
     else return LocalPlayer:WaitForChild("PlayerGui") end
 end
 
--- // HELPER: BRANDED NOTIFICATION //
-local function Notify(title, text, duration)
+local function Notify(title, text)
     StarterGui:SetCore("SendNotification", {
-        Title = title,
-        Text = text,
-        Duration = duration or 3,
-        Icon = UI_CONFIG.IconImage
+        Title = title, Text = text, Duration = 5, Icon = UI_CONFIG.IconImage
     })
 end
 
--- // SOUND HELPER //
-local function PlaySound(id, volume)
+local function PlaySound(id)
     task.spawn(function()
         local s = Instance.new("Sound")
         s.SoundId = "rbxassetid://" .. tostring(id)
-        s.Volume = volume or 1
+        s.Volume = 1
         s.Parent = game:GetService("SoundService")
         s.PlayOnRemove = true
         s:Destroy()
     end)
 end
 
--- // SHAKE ANIMATION //
+-- // ANIMATION HELPERS //
 local function ShakeUI(guiObject)
     local originalPos = guiObject.Position
     local duration = 0.05
-    local intensity = 5
     for i = 1, 6 do
-        local offset = (i % 2 == 0 and -intensity or intensity)
+        local offset = (i % 2 == 0 and -5 or 5)
         TweenService:Create(guiObject, TweenInfo.new(duration), {
             Position = UDim2.new(originalPos.X.Scale, originalPos.X.Offset + offset, originalPos.Y.Scale, originalPos.Y.Offset)
         }):Play()
         task.wait(duration)
     end
     TweenService:Create(guiObject, TweenInfo.new(duration), {Position = originalPos}):Play()
+end
+
+local function TweenObj(obj, props, time)
+    TweenService:Create(obj, TweenInfo.new(time or 0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), props):Play()
 end
 
 Notify("Punk X", "Initializing... Checking Resources")
@@ -92,14 +77,12 @@ local success, KeyLib = pcall(function()
 end)
 
 if not success or not KeyLib then
-    Notify("Punk X Error", "Connection Error (Auth Lib)", 5)
+    Notify("Punk X Error", "Connection Error (Auth Lib)")
     return
 end
 
--- // HELPER FUNCTIONS (FIXED) //
-
+-- // LAUNCHER LOGIC //
 local function LaunchPunkX(passedKey, targetUrl)
-    -- [CRITICAL FIX] Save Key to BOTH environments
     getgenv().PUNK_X_KEY = passedKey
     _G.PUNK_X_KEY = passedKey 
     
@@ -109,10 +92,7 @@ local function LaunchPunkX(passedKey, targetUrl)
     end
 
     task.spawn(function()
-        -- 1. Download
-        local success_dl, content = pcall(function()
-            return game:HttpGet(targetUrl)
-        end)
+        local success_dl, content = pcall(function() return game:HttpGet(targetUrl) end)
 
         if not success_dl then
             PlaySound(SOUNDS.Error)
@@ -120,23 +100,17 @@ local function LaunchPunkX(passedKey, targetUrl)
             return
         end
 
-        -- 2. Compile (Syntax Check)
         local func, syntax_error = loadstring(content)
-        
         if not func then
             PlaySound(SOUNDS.Error)
             Notify("Punk X", "Update Corrupted (Syntax Error)")
-            warn("------------------------------------------------")
-            warn("🚨 PUNK X CLOUD INTEGRITY ERROR 🚨")
-            warn("Debug Info: " .. tostring(syntax_error))
-            warn("------------------------------------------------")
+            warn("🚨 PUNK X CLOUD ERROR: " .. tostring(syntax_error))
             return
         end
 
-        -- 3. Execute
         local run_success, run_err = pcall(func)
         if not run_success then
-            warn("[PUNK X SYSTEM EXCEPTION]:", run_err)
+            warn("[PUNK X EXCEPTION]:", run_err)
             Notify("Punk X", "Launch Failed (Internal Error)")
         end
     end)
@@ -148,33 +122,26 @@ local function OnKeyVerified(data, keyUsed)
     LaunchPunkX(keyUsed, Main_URL)
 end
 
--- // 3. BUILD UI //
-
-for _, v in pairs(GetSecureParent():GetChildren()) do
-    if v.Name == "PunkX_ModernUI" then v:Destroy() end
-end
-
-local function TweenObj(obj, props, time)
-    TweenService:Create(obj, TweenInfo.new(time or 0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), props):Play()
-end
+-- // UI CONSTRUCTION //
+for _, v in pairs(GetSecureParent():GetChildren()) do if v.Name == "PunkX_ModernUI" then v:Destroy() end end
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "PunkX_ModernUI"
 ScreenGui.Parent = GetSecureParent()
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.ResetOnSpawn = false
-ScreenGui.DisplayOrder = 2147483647 
 ScreenGui.IgnoreGuiInset = true 
 
+-- Blur Effect
 local Blur = Instance.new("BlurEffect", game.Lighting)
 Blur.Name = "PunkX_Blur"
 Blur.Size = 0 
-TweenObj(Blur, {Size = 15}, 0.5)
 
--- Main Frame
+-- Main Frame (HIDDEN BY DEFAULT)
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 0, 0, 0) -- Start Tiny
+MainFrame.Visible = false -- [[ GHOST MODE ENABLED ]]
+MainFrame.Size = UDim2.new(0, 0, 0, 0) 
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.BackgroundColor3 = UI_CONFIG.BgColor
@@ -188,7 +155,7 @@ Stroke.Color = UI_CONFIG.AccentColor
 Stroke.Thickness = 1.5
 Stroke.Transparency = 1
 
--- Background
+-- Background Image
 local BgImage = Instance.new("ImageLabel", MainFrame)
 BgImage.Name = "Background"
 BgImage.Size = UDim2.new(1, 0, 1, 0)
@@ -199,142 +166,98 @@ BgImage.ImageColor3 = Color3.fromRGB(150, 150, 150)
 BgImage.ZIndex = 1 
 Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 16)
 
--- [SAFE ASSET PRELOADER]
-task.spawn(function()
-    pcall(function()
-        ContentProvider:PreloadAsync({BgImage})
-    end)
-end)
+-- Preload Asset
+task.spawn(function() pcall(function() ContentProvider:PreloadAsync({BgImage}) end) end)
 
--- UI ELEMENTS
+-- Title
 local Title = Instance.new("TextLabel", MainFrame)
-Title.Text = UI_CONFIG.Title
-Title.Font = UI_CONFIG.Font
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 24
-Title.Size = UDim2.new(0.6, 0, 0.25, 0)
-Title.BackgroundTransparency = 1
-Title.Position = UDim2.new(0.05, 0, 0.05, 0)
-Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Text = UI_CONFIG.Title; Title.Font = UI_CONFIG.Font
+Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.TextSize = 24
+Title.Size = UDim2.new(0.6, 0, 0.25, 0); Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0.05, 0, 0.05, 0); Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.ZIndex = 2 
 
+-- Version
 local VerLabel = Instance.new("TextLabel", MainFrame)
-VerLabel.Text = UI_CONFIG.Version
-VerLabel.Font = UI_CONFIG.FontRegular
-VerLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
-VerLabel.TextSize = 10
-VerLabel.Size = UDim2.new(0, 50, 0, 20)
-VerLabel.BackgroundTransparency = 1
-VerLabel.Position = UDim2.new(0.95, 0, 0.95, 0)
-VerLabel.AnchorPoint = Vector2.new(1, 1)
-VerLabel.TextXAlignment = Enum.TextXAlignment.Right
-VerLabel.ZIndex = 2
+VerLabel.Text = "v18.1"; VerLabel.Font = UI_CONFIG.FontRegular
+VerLabel.TextColor3 = Color3.fromRGB(100, 100, 100); VerLabel.TextSize = 10
+VerLabel.Size = UDim2.new(0, 50, 0, 20); VerLabel.BackgroundTransparency = 1
+VerLabel.Position = UDim2.new(0.95, 0, 0.95, 0); VerLabel.AnchorPoint = Vector2.new(1, 1)
+VerLabel.TextXAlignment = Enum.TextXAlignment.Right; VerLabel.ZIndex = 2
 
+-- SubTitle
 local SubTitle = Instance.new("TextLabel", MainFrame)
-SubTitle.Text = "Authentication Required"
-SubTitle.Font = UI_CONFIG.FontRegular
-SubTitle.TextColor3 = Color3.fromRGB(200, 200, 200)
-SubTitle.TextSize = 14
-SubTitle.Size = UDim2.new(1, 0, 0.1, 0)
-SubTitle.BackgroundTransparency = 1
-SubTitle.Position = UDim2.new(0.05, 0, 0.22, 0)
-SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+SubTitle.Text = "Authentication Required"; SubTitle.Font = UI_CONFIG.FontRegular
+SubTitle.TextColor3 = Color3.fromRGB(200, 200, 200); SubTitle.TextSize = 14
+SubTitle.Size = UDim2.new(1, 0, 0.1, 0); SubTitle.BackgroundTransparency = 1
+SubTitle.Position = UDim2.new(0.05, 0, 0.22, 0); SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 SubTitle.ZIndex = 2
 
+-- Discord Button
 local DiscordBtn = Instance.new("TextButton", MainFrame)
-DiscordBtn.Name = "DiscordBtn"
-DiscordBtn.Size = UDim2.new(0, 100, 0, 32)
-DiscordBtn.Position = UDim2.new(0.94, 0, 0.08, 0)
-DiscordBtn.AnchorPoint = Vector2.new(1, 0)
-DiscordBtn.BackgroundColor3 = UI_CONFIG.DiscordColor
-DiscordBtn.Text = "Join Discord"
-DiscordBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-DiscordBtn.Font = UI_CONFIG.Font
-DiscordBtn.TextSize = 12
-DiscordBtn.ZIndex = 2
+DiscordBtn.Name = "DiscordBtn"; DiscordBtn.Size = UDim2.new(0, 100, 0, 32)
+DiscordBtn.Position = UDim2.new(0.94, 0, 0.08, 0); DiscordBtn.AnchorPoint = Vector2.new(1, 0)
+DiscordBtn.BackgroundColor3 = UI_CONFIG.DiscordColor; DiscordBtn.Text = "Join Discord"
+DiscordBtn.TextColor3 = Color3.fromRGB(255, 255, 255); DiscordBtn.Font = UI_CONFIG.Font
+DiscordBtn.TextSize = 12; DiscordBtn.ZIndex = 2
 Instance.new("UICorner", DiscordBtn).CornerRadius = UDim.new(0, 8)
 
+-- Input Area
 local InputContainer = Instance.new("Frame", MainFrame)
 InputContainer.Size = UDim2.new(0.85, 0, 0.22, 0)
 InputContainer.Position = UDim2.new(0.5, 0, 0.45, 0)
 InputContainer.AnchorPoint = Vector2.new(0.5, 0)
 InputContainer.BackgroundColor3 = UI_CONFIG.InputColor
 InputContainer.BackgroundTransparency = 0.2 
-InputContainer.BorderSizePixel = 0
-InputContainer.ZIndex = 2
+InputContainer.BorderSizePixel = 0; InputContainer.ZIndex = 2
 Instance.new("UICorner", InputContainer).CornerRadius = UDim.new(0, 10)
 
 local InputStroke = Instance.new("UIStroke", InputContainer)
-InputStroke.Color = UI_CONFIG.AccentColor
-InputStroke.Thickness = 1
-InputStroke.Transparency = 0.8
+InputStroke.Color = UI_CONFIG.AccentColor; InputStroke.Thickness = 1; InputStroke.Transparency = 0.8
 
 local KeyBox = Instance.new("TextBox", InputContainer)
-KeyBox.Size = UDim2.new(0.8, 0, 1, 0)
-KeyBox.Position = UDim2.new(0.05, 0, 0, 0)
-KeyBox.BackgroundTransparency = 1
-KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyBox.PlaceholderText = "Paste your key here..."
-KeyBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
-KeyBox.Font = UI_CONFIG.FontRegular
-KeyBox.TextSize = 14
-KeyBox.TextXAlignment = Enum.TextXAlignment.Left
-KeyBox.ZIndex = 3
-KeyBox.ClearTextOnFocus = false
-KeyBox.Text = "" 
+KeyBox.Size = UDim2.new(0.8, 0, 1, 0); KeyBox.Position = UDim2.new(0.05, 0, 0, 0)
+KeyBox.BackgroundTransparency = 1; KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyBox.PlaceholderText = "Paste your key here..."; KeyBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+KeyBox.Font = UI_CONFIG.FontRegular; KeyBox.TextSize = 14
+KeyBox.TextXAlignment = Enum.TextXAlignment.Left; KeyBox.ZIndex = 3
+KeyBox.ClearTextOnFocus = false; KeyBox.Text = "" 
 
+-- Paste Button
 local PasteBtn = Instance.new("TextButton", InputContainer)
-PasteBtn.Size = UDim2.new(0.15, 0, 0.8, 0)
-PasteBtn.Position = UDim2.new(0.98, 0, 0.5, 0)
-PasteBtn.AnchorPoint = Vector2.new(1, 0.5)
-PasteBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-PasteBtn.Text = "PASTE"
-PasteBtn.TextColor3 = UI_CONFIG.AccentColor
-PasteBtn.Font = UI_CONFIG.Font
-PasteBtn.TextSize = 9
-PasteBtn.ZIndex = 4
+PasteBtn.Size = UDim2.new(0.15, 0, 0.8, 0); PasteBtn.Position = UDim2.new(0.98, 0, 0.5, 0)
+PasteBtn.AnchorPoint = Vector2.new(1, 0.5); PasteBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+PasteBtn.Text = "PASTE"; PasteBtn.TextColor3 = UI_CONFIG.AccentColor
+PasteBtn.Font = UI_CONFIG.Font; PasteBtn.TextSize = 9; PasteBtn.ZIndex = 4
 Instance.new("UICorner", PasteBtn).CornerRadius = UDim.new(0, 6)
 
+-- Button Container
 local BtnContainer = Instance.new("Frame", MainFrame)
 BtnContainer.Size = UDim2.new(0.85, 0, 0.18, 0)
 BtnContainer.Position = UDim2.new(0.5, 0, 0.75, 0)
 BtnContainer.AnchorPoint = Vector2.new(0.5, 0)
-BtnContainer.BackgroundTransparency = 1
-BtnContainer.ZIndex = 2
+BtnContainer.BackgroundTransparency = 1; BtnContainer.ZIndex = 2
 
 local GetKeyBtn = Instance.new("TextButton", BtnContainer)
-GetKeyBtn.Size = UDim2.new(0.47, 0, 1, 0)
-GetKeyBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-GetKeyBtn.Text = "Get Key"
-GetKeyBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-GetKeyBtn.Font = UI_CONFIG.Font
-GetKeyBtn.TextSize = 14
-GetKeyBtn.ZIndex = 3
+GetKeyBtn.Size = UDim2.new(0.47, 0, 1, 0); GetKeyBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+GetKeyBtn.Text = "Get Key"; GetKeyBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+GetKeyBtn.Font = UI_CONFIG.Font; GetKeyBtn.TextSize = 14; GetKeyBtn.ZIndex = 3
 Instance.new("UICorner", GetKeyBtn).CornerRadius = UDim.new(0, 8)
 
 local RedeemBtn = Instance.new("TextButton", BtnContainer)
-RedeemBtn.Size = UDim2.new(0.47, 0, 1, 0)
-RedeemBtn.Position = UDim2.new(1, 0, 0, 0)
-RedeemBtn.AnchorPoint = Vector2.new(1, 0)
-RedeemBtn.BackgroundColor3 = UI_CONFIG.AccentColor
-RedeemBtn.Text = "Redeem"
-RedeemBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-RedeemBtn.Font = UI_CONFIG.Font
-RedeemBtn.TextSize = 14
-RedeemBtn.ZIndex = 3
+RedeemBtn.Size = UDim2.new(0.47, 0, 1, 0); RedeemBtn.Position = UDim2.new(1, 0, 0, 0)
+RedeemBtn.AnchorPoint = Vector2.new(1, 0); RedeemBtn.BackgroundColor3 = UI_CONFIG.AccentColor
+RedeemBtn.Text = "Redeem"; RedeemBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+RedeemBtn.Font = UI_CONFIG.Font; RedeemBtn.TextSize = 14; RedeemBtn.ZIndex = 3
 Instance.new("UICorner", RedeemBtn).CornerRadius = UDim.new(0, 8)
 
 local StatusText = Instance.new("TextLabel", MainFrame)
-StatusText.Size = UDim2.new(1, 0, 0.1, 0)
-StatusText.Position = UDim2.new(0, 0, 0.92, 0)
-StatusText.BackgroundTransparency = 1
-StatusText.Text = "Status: Waiting for key"
-StatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
-StatusText.Font = Enum.Font.Gotham
-StatusText.TextSize = 11
-StatusText.ZIndex = 2
+StatusText.Size = UDim2.new(1, 0, 0.1, 0); StatusText.Position = UDim2.new(0, 0, 0.92, 0)
+StatusText.BackgroundTransparency = 1; StatusText.Text = "Status: Waiting for key"
+StatusText.TextColor3 = Color3.fromRGB(200, 200, 200); StatusText.Font = Enum.Font.Gotham
+StatusText.TextSize = 11; StatusText.ZIndex = 2
 
--- [[ HIDDEN DEV MENU (Matches your UI Style) ]] --
+-- [[ HIDDEN DEV MENU ]] --
 local DevContainer = Instance.new("Frame", MainFrame)
 DevContainer.Size = UDim2.new(0.85, 0, 0.4, 0)
 DevContainer.Position = UDim2.new(1.5, 0, 0.45, 0) -- Hidden off screen
@@ -362,10 +285,7 @@ BetaBtn.Font = UI_CONFIG.Font
 BetaBtn.TextSize = 14
 Instance.new("UICorner", BetaBtn).CornerRadius = UDim.new(0, 8)
 
--- // 4. ANIMATIONS //
-TweenObj(MainFrame, {Size = UDim2.new(0.5, 0, 0.45, 0)}, 0.4) 
-TweenObj(Stroke, {Transparency = 0.5}, 0.8) 
-
+-- // BUTTON EFFECTS & LOGIC //
 local function AddButtonEffects(btn)
     btn.MouseEnter:Connect(function() TweenObj(btn, {BackgroundTransparency = 0.2}) end)
     btn.MouseLeave:Connect(function() TweenObj(btn, {BackgroundTransparency = 0}) end)
@@ -396,10 +316,7 @@ local function MakeDraggable(gui)
     end
     gui.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = gui.Position
-            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+            dragging = true; dragStart = input.Position; startPos = MainFrame.Position
         end
     end)
     gui.InputChanged:Connect(function(input)
@@ -411,14 +328,11 @@ MakeDraggable(MainFrame)
 
 -- // FUNCTIONS //
 
--- Transitions
-local function ShowDevMenu()
-    SubTitle.Text = "Select Environment"
-    -- Slide Input/Buttons Out Left
-    TweenObj(InputContainer, {Position = UDim2.new(-0.5, 0, 0.45, 0)}, 0.5)
-    TweenObj(BtnContainer, {Position = UDim2.new(-0.5, 0, 0.75, 0)}, 0.5)
-    -- Slide Dev Menu In
-    TweenObj(DevContainer, {Position = UDim2.new(0.5, 0, 0.45, 0)}, 0.5)
+local function OpenLoader()
+    MainFrame.Visible = true
+    TweenService:Create(Blur, TweenInfo.new(0.5), {Size = 15}):Play()
+    TweenObj(MainFrame, {Size = UDim2.new(0.5, 0, 0.45, 0)}, 0.4) 
+    TweenObj(Stroke, {Transparency = 0.5}, 0.8) 
 end
 
 local function CloseLoader()
@@ -429,60 +343,43 @@ local function CloseLoader()
     ScreenGui:Destroy()
 end
 
+local function ShowDevMenu()
+    SubTitle.Text = "Select Environment"
+    TweenObj(InputContainer, {Position = UDim2.new(-0.5, 0, 0.45, 0)}, 0.5)
+    TweenObj(BtnContainer, {Position = UDim2.new(-0.5, 0, 0.75, 0)}, 0.5)
+    TweenObj(DevContainer, {Position = UDim2.new(0.5, 0, 0.45, 0)}, 0.5)
+end
+
 -- Button Logic
 PasteBtn.MouseButton1Click:Connect(function()
     if getclipboard then
         local clip = getclipboard()
         if clip and clip ~= "" then
-            KeyBox.Text = clip
-            KeyBox:ReleaseFocus() 
-            PlaySound(SOUNDS.Click, 0.6)
+            KeyBox.Text = clip; KeyBox:ReleaseFocus(); PlaySound(SOUNDS.Click)
         else
-            StatusText.Text = "Clipboard Empty!"
-            StatusText.TextColor3 = Color3.fromRGB(255, 100, 100)
-            PlaySound(SOUNDS.Error, 0.5)
-            ShakeUI(InputContainer)
+            StatusText.Text = "Clipboard Empty!"; StatusText.TextColor3 = Color3.fromRGB(255, 100, 100)
+            PlaySound(SOUNDS.Error); ShakeUI(InputContainer)
         end
     else
-        StatusText.Text = "Not Supported!"
-        PlaySound(SOUNDS.Error, 0.5)
+        StatusText.Text = "Not Supported!"; PlaySound(SOUNDS.Error)
     end
 end)
 
 DiscordBtn.MouseButton1Click:Connect(function()
-    PlaySound(SOUNDS.Click, 0.5) 
-    if setclipboard then
-        setclipboard(UI_CONFIG.DiscordLink)
-        Notify("Punk X", "Discord Invite Copied!", 3)
-    else
-        print("Discord:", UI_CONFIG.DiscordLink)
-    end
+    PlaySound(SOUNDS.Click) 
+    if setclipboard then setclipboard(UI_CONFIG.DiscordLink) Notify("Punk X", "Discord Invite Copied!", 3) end
 end)
 
 GetKeyBtn.MouseButton1Click:Connect(function()
-    PlaySound(SOUNDS.Click, 0.5)
-    if setclipboard then
-        setclipboard(KeyLib.GetKeyURL())
-        GetKeyBtn.Text = "Copied!"
-        Notify("Punk X", "Key Link Copied!", 3)
-    else
-        print("Key URL:", KeyLib.GetKeyURL())
-    end
+    PlaySound(SOUNDS.Click)
+    if setclipboard then setclipboard(KeyLib.GetKeyURL()) Notify("Punk X", "Key Link Copied!", 3) end
+    GetKeyBtn.Text = "Copied!"
     task.wait(1.5)
     GetKeyBtn.Text = "Get Key"
 end)
 
-StableBtn.MouseButton1Click:Connect(function()
-    PlaySound(SOUNDS.Success, 1)
-    CloseLoader()
-    LaunchPunkX(SECRET_DEV_KEY, Main_URL)
-end)
-
-BetaBtn.MouseButton1Click:Connect(function()
-    PlaySound(SOUNDS.Success, 1)
-    CloseLoader()
-    LaunchPunkX(SECRET_DEV_KEY, Beta_URL)
-end)
+StableBtn.MouseButton1Click:Connect(function() PlaySound(SOUNDS.Success, 1); CloseLoader(); LaunchPunkX(SECRET_DEV_KEY, Main_URL) end)
+BetaBtn.MouseButton1Click:Connect(function() PlaySound(SOUNDS.Success, 1); CloseLoader(); LaunchPunkX(SECRET_DEV_KEY, Beta_URL) end)
 
 local isChecking = false
 RedeemBtn.MouseButton1Click:Connect(function()
@@ -501,44 +398,52 @@ RedeemBtn.MouseButton1Click:Connect(function()
         StatusText.TextColor3 = Color3.fromRGB(0, 200, 255)
         if writefile then pcall(function() writefile("punk-x-key.txt", key) end) end
         ShowDevMenu()
-        return -- Do not close UI yet
+        return 
     end
 
     -- [NORMAL USERS]
-    local valid, data = KeyLib.Validate(key)
-    if valid then
+    -- Safe call to prevent freezing if Panda is down
+    local success, valid, data = pcall(function() return KeyLib.Validate(key) end)
+    
+    if success and valid then
         PlaySound(SOUNDS.Success, 1)
         StatusText.Text = "Success!"
         StatusText.TextColor3 = Color3.fromRGB(50, 255, 100)
         CloseLoader()
-        OnKeyVerified(data, key)
+        OnKeyVerified(valid, key) -- Pass valid (data) not data
     else
         PlaySound(SOUNDS.Error, 0.8)
-        StatusText.Text = "Invalid Key"
+        StatusText.Text = (success and "Invalid Key" or "Connection Error")
         StatusText.TextColor3 = Color3.fromRGB(255, 80, 80)
         KeyBox.Text = "" 
         ShakeUI(InputContainer) 
         isChecking = false
+        RedeemBtn.Text = "Redeem"
     end
 end)
 
 -- // 6. AUTO-LOGIN CHECK //
+local autoLogged = false
 local saved = KeyLib.GetSavedKey()
+
 if saved then
     if saved == SECRET_DEV_KEY then
-        -- Auto-show menu if dev
+        OpenLoader() -- Must open to show dev menu
         KeyBox.Text = saved
         ShowDevMenu()
+        autoLogged = true
     else
-        -- Auto-load public if normal user
-        local valid, data = KeyLib.Validate(saved)
-        if valid then 
-            getgenv().PUNK_X_EXPIRY = (data and data.Key_Information and data.Key_Information.expiresAt) or "Active"
-            Notify("Punk X", "Welcome Back!")
-            LaunchPunkX(saved, Main_URL)
-            CloseLoader()
+        local success, valid, data = pcall(function() return KeyLib.Validate(saved) end)
+        if success and valid then 
+            autoLogged = true
+            OnKeyVerified(valid, saved)
         end
     end
+end
+
+-- Only Show Loader if Auto-Login Failed/Skipped
+if not autoLogged then
+    OpenLoader()
 end
 
 -- // 7. ANTI-AFK //
