@@ -1,5 +1,5 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 19.0 (Original Structure + Fixed Logic + Dev Menu)
+-- Version: 21.1 (Final Polished & Secured)
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -12,16 +12,17 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 -- [1] CONFIGURATION
-local SECRET_DEV_KEY = "PUNK-X-8B29-4F1A-9C3D-7E11"
+local SECRET_DEV_KEY = "PUNK-X-8B29-4F1A-9C3D-7E11" -- [[ MATCHES EXECUTOR LOGIC ]]
+local KEY_FILE_NAME = "punk-x-key.txt" -- [[ MATCHES AUTH LOGIC ]]
 
--- URLs (Updated to GBMofo + Cache Buster)
+-- URLs (Cache Busted)
 local KeyLogic_URL = "https://raw.githubusercontent.com/Silent-Caliber/System-Files/main/Auth.lua?t="..tostring(os.time())
 local Main_URL     = "https://raw.githubusercontent.com/Silent-Caliber/System-Files/main/Main.lua?t="..tostring(os.time())
 local Beta_URL     = "https://raw.githubusercontent.com/GBMofo/System-Files/main/Beta.lua?t="..tostring(os.time())
 
 local UI_CONFIG = {
     Title = "PUNK X",
-    Version = "v19.0",
+    Version = "v21.1",
     AccentColor = Color3.fromRGB(0, 120, 255),
     BgColor = Color3.fromRGB(20, 20, 23),
     InputColor = Color3.fromRGB(30, 30, 35),
@@ -29,7 +30,6 @@ local UI_CONFIG = {
     Font = Enum.Font.GothamBold,
     FontRegular = Enum.Font.GothamMedium,
     DiscordLink = "https://discord.gg/JxEjAtdgWD",
-    -- [[ FIXED: Added Background Image back ]]
     BackgroundImage = "rbxthumb://type=Asset&id=83372655709716&w=768&h=432",
     IconImage = "rbxthumb://type=Asset&id=128877949924034&w=150&h=150"
 }
@@ -40,6 +40,8 @@ local SOUNDS = {
     Success = 4590662766,
     Error   = 550209561
 }
+
+local CURRENT_KEY = "" 
 
 -- // SECURE PARENTING //
 local function GetSecureParent()
@@ -100,8 +102,12 @@ end
 -- // HELPER FUNCTIONS //
 
 local function LaunchPunkX(passedKey, targetUrl)
-    -- Save Key Globally (Dual Backup)
-    getgenv().PUNK_X_KEY = passedKey
+    -- [[ FIXED: SAFE VARIABLE HANDOFF ]] --
+    -- Checks if getgenv exists to prevent crashes on bad executors
+    if getgenv then
+        getgenv().PUNK_X_KEY = passedKey
+    end
+    -- Always set _G as a backup (Your executor checks both)
     _G.PUNK_X_KEY = passedKey 
     
     if passedKey == SECRET_DEV_KEY then 
@@ -118,7 +124,6 @@ local function LaunchPunkX(passedKey, targetUrl)
             return
         end
 
-        -- Check for syntax errors before running
         local func, syntax_error = loadstring(content)
         if not func then
             PlaySound(SOUNDS.Error)
@@ -135,21 +140,20 @@ local function LaunchPunkX(passedKey, targetUrl)
     end)
 end
 
-local function OnKeyVerified(data, keyUsed)
-    -- Safe Expiry Parsing
+local function SetExpiryData(data)
+    local expiryText = "Active"
+    
     if data and type(data) == "table" then
         if data.Key_Information and data.Key_Information.expiresAt then
-             getgenv().PUNK_X_EXPIRY = data.Key_Information.expiresAt
-        elseif data.keyInfo and data.keyInfo.expiresAt then
-             getgenv().PUNK_X_EXPIRY = data.keyInfo.expiresAt
-        else
-             getgenv().PUNK_X_EXPIRY = "Active"
+             expiryText = data.Key_Information.expiresAt
+        elseif data.expiresAt then
+             expiryText = data.expiresAt
         end
-    else
-        getgenv().PUNK_X_EXPIRY = "Active"
     end
-    Notify("Punk X", "Access Granted! Loading...", 3)
-    LaunchPunkX(keyUsed, Main_URL)
+    
+    -- [[ SAFE HANDOFF FOR EXPIRY ]]
+    if getgenv then getgenv().PUNK_X_EXPIRY = expiryText end
+    _G.PUNK_X_EXPIRY = expiryText
 end
 
 -- // 3. BUILD UI //
@@ -174,11 +178,11 @@ local Blur = Instance.new("BlurEffect", game.Lighting)
 Blur.Name = "PunkX_Blur"
 Blur.Size = 0 
 
--- Main Frame (HIDDEN BY DEFAULT - GHOST MODE)
+-- Main Frame
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Name = "MainFrame"
-MainFrame.Visible = false -- [[ GHOST MODE ENABLED ]]
-MainFrame.Size = UDim2.new(0, 0, 0, 0) -- Start Tiny
+MainFrame.Visible = false 
+MainFrame.Size = UDim2.new(0, 0, 0, 0)
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.BackgroundColor3 = UI_CONFIG.BgColor
@@ -203,11 +207,8 @@ BgImage.ImageColor3 = Color3.fromRGB(150, 150, 150)
 BgImage.ZIndex = 1 
 Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 16)
 
--- [SAFE ASSET PRELOADER]
 task.spawn(function()
-    pcall(function()
-        ContentProvider:PreloadAsync({BgImage})
-    end)
+    pcall(function() ContentProvider:PreloadAsync({BgImage}) end)
 end)
 
 -- UI ELEMENTS
@@ -258,6 +259,7 @@ DiscordBtn.TextSize = 12
 DiscordBtn.ZIndex = 2
 Instance.new("UICorner", DiscordBtn).CornerRadius = UDim.new(0, 8)
 
+-- INPUT GROUP
 local InputContainer = Instance.new("Frame", MainFrame)
 InputContainer.Size = UDim2.new(0.85, 0, 0.22, 0)
 InputContainer.Position = UDim2.new(0.5, 0, 0.45, 0)
@@ -338,15 +340,15 @@ StatusText.Font = Enum.Font.Gotham
 StatusText.TextSize = 11
 StatusText.ZIndex = 2
 
--- [[ HIDDEN DEV MENU (Added) ]] --
-local DevContainer = Instance.new("Frame", MainFrame)
-DevContainer.Size = UDim2.new(0.85, 0, 0.4, 0)
-DevContainer.Position = UDim2.new(1.5, 0, 0.45, 0) -- Hidden off screen
-DevContainer.AnchorPoint = Vector2.new(0.5, 0)
-DevContainer.BackgroundTransparency = 1
-DevContainer.ZIndex = 5
+-- [[ SELECTION MENU ]] --
+local SelectionContainer = Instance.new("Frame", MainFrame)
+SelectionContainer.Size = UDim2.new(0.85, 0, 0.4, 0)
+SelectionContainer.Position = UDim2.new(1.5, 0, 0.45, 0) -- Hidden off screen
+SelectionContainer.AnchorPoint = Vector2.new(0.5, 0)
+SelectionContainer.BackgroundTransparency = 1
+SelectionContainer.ZIndex = 5
 
-local StableBtn = Instance.new("TextButton", DevContainer)
+local StableBtn = Instance.new("TextButton", SelectionContainer)
 StableBtn.Size = UDim2.new(1, 0, 0.45, 0)
 StableBtn.Position = UDim2.new(0, 0, 0, 0)
 StableBtn.BackgroundColor3 = Color3.fromRGB(40, 200, 80) -- Green
@@ -356,7 +358,7 @@ StableBtn.Font = UI_CONFIG.Font
 StableBtn.TextSize = 14
 Instance.new("UICorner", StableBtn).CornerRadius = UDim.new(0, 8)
 
-local BetaBtn = Instance.new("TextButton", DevContainer)
+local BetaBtn = Instance.new("TextButton", SelectionContainer)
 BetaBtn.Size = UDim2.new(1, 0, 0.45, 0)
 BetaBtn.Position = UDim2.new(0, 0, 0.55, 0)
 BetaBtn.BackgroundColor3 = Color3.fromRGB(200, 150, 40) -- Orange
@@ -428,11 +430,29 @@ MakeDraggable(MainFrame)
 
 -- // FUNCTIONS //
 
-local function ShowDevMenu()
+-- [[ LOGIC: Show appropriate buttons based on user type ]]
+local function ShowLauncherMenu(isDev)
     SubTitle.Text = "Select Environment"
+    
+    -- Hide Key Input System
     TweenObj(InputContainer, {Position = UDim2.new(-0.5, 0, 0.45, 0)}, 0.5)
     TweenObj(BtnContainer, {Position = UDim2.new(-0.5, 0, 0.75, 0)}, 0.5)
-    TweenObj(DevContainer, {Position = UDim2.new(0.5, 0, 0.45, 0)}, 0.5)
+    
+    -- Configure Selection Menu based on Key Type
+    if isDev then
+        -- Developer: Show Both Buttons
+        BetaBtn.Visible = true
+        StableBtn.Size = UDim2.new(1, 0, 0.45, 0)
+        StableBtn.Position = UDim2.new(0, 0, 0, 0)
+    else
+        -- Normal User: Hide Beta, Center Stable Button
+        BetaBtn.Visible = false
+        StableBtn.Size = UDim2.new(1, 0, 0.6, 0) -- Bigger, centered button
+        StableBtn.Position = UDim2.new(0, 0, 0.2, 0)
+    end
+    
+    -- Bring in Selection Menu
+    TweenObj(SelectionContainer, {Position = UDim2.new(0.5, 0, 0.45, 0)}, 0.5)
 end
 
 -- Button Logic
@@ -481,7 +501,8 @@ end)
 StableBtn.MouseButton1Click:Connect(function()
     PlaySound(SOUNDS.Success)
     CloseLoader()
-    LaunchPunkX(SECRET_DEV_KEY, Main_URL)
+    -- Launch using the key validation (Dev or Public)
+    LaunchPunkX(CURRENT_KEY, Main_URL)
 end)
 
 BetaBtn.MouseButton1Click:Connect(function()
@@ -505,9 +526,13 @@ RedeemBtn.MouseButton1Click:Connect(function()
         PlaySound(SOUNDS.Success)
         StatusText.Text = "Developer Mode"
         StatusText.TextColor3 = Color3.fromRGB(0, 200, 255)
-        if writefile then pcall(function() writefile("punk-x-key.txt", key) end) end
-        ShowDevMenu()
-        return -- Do not close UI yet
+        
+        -- Manual save for Dev Key
+        if writefile then pcall(function() writefile(KEY_FILE_NAME, key) end) end
+        
+        CURRENT_KEY = key
+        ShowLauncherMenu(true) -- True = Dev Menu (Show Beta)
+        return 
     end
 
     -- [NORMAL USERS]
@@ -518,8 +543,12 @@ RedeemBtn.MouseButton1Click:Connect(function()
         PlaySound(SOUNDS.Success)
         StatusText.Text = "Success!"
         StatusText.TextColor3 = Color3.fromRGB(50, 255, 100)
-        CloseLoader()
-        OnKeyVerified(data, key) -- CORRECT: Passing 'data' (Table), NOT 'valid' (Boolean)
+        
+        SetExpiryData(data)
+        Notify("Punk X", "Access Granted!", 2)
+        
+        CURRENT_KEY = key
+        ShowLauncherMenu(false) -- False = Public Menu (Hide Beta)
     else
         PlaySound(SOUNDS.Error)
         StatusText.Text = (success and "Invalid Key" or "Connection Error")
@@ -539,14 +568,18 @@ if saved then
     if saved == SECRET_DEV_KEY then
         OpenLoader() -- Must open to show dev menu
         KeyBox.Text = saved
-        ShowDevMenu()
+        CURRENT_KEY = saved
+        ShowLauncherMenu(true)
         autoLogged = true
     else
         local success, valid, data = pcall(function() return KeyLib.Validate(saved) end)
         if success and valid then 
+            OpenLoader() -- Show Loader
+            KeyBox.Text = saved
+            SetExpiryData(data)
+            CURRENT_KEY = saved
+            ShowLauncherMenu(false) -- Show Public Menu
             autoLogged = true
-            OnKeyVerified(data, saved) -- CORRECT: Passing 'data' (Table)
-            CloseLoader()
         end
     end
 end
