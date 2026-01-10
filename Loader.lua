@@ -1,5 +1,5 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 21.2 (Added Welcome Notification)
+-- Version: 21.3 (Fixed Status Text Bug)
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -12,8 +12,8 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 -- [1] CONFIGURATION
-local SECRET_DEV_KEY = "PUNK-X-8B29-4F1A-9C3D-7E11" -- [[ MATCHES EXECUTOR LOGIC ]]
-local KEY_FILE_NAME = "punk-x-key.txt" -- [[ MATCHES AUTH LOGIC ]]
+local SECRET_DEV_KEY = "PUNK-X-8B29-4F1A-9C3D-7E11" 
+local KEY_FILE_NAME = "punk-x-key.txt"
 
 -- URLs (Cache Busted)
 local KeyLogic_URL = "https://raw.githubusercontent.com/Silent-Caliber/System-Files/main/Auth.lua?t="..tostring(os.time())
@@ -22,7 +22,7 @@ local Beta_URL     = "https://raw.githubusercontent.com/GBMofo/System-Files/main
 
 local UI_CONFIG = {
     Title = "PUNK X",
-    Version = "v21.2",
+    Version = "v21.3",
     AccentColor = Color3.fromRGB(0, 120, 255),
     BgColor = Color3.fromRGB(20, 20, 23),
     InputColor = Color3.fromRGB(30, 30, 35),
@@ -149,7 +149,6 @@ local function SetExpiryData(data)
         end
     end
     
-    -- [[ SAFE HANDOFF FOR EXPIRY ]]
     if getgenv then getgenv().PUNK_X_EXPIRY = expiryText end
     _G.PUNK_X_EXPIRY = expiryText
 end
@@ -432,6 +431,10 @@ MakeDraggable(MainFrame)
 local function ShowLauncherMenu(isDev)
     SubTitle.Text = "Select Environment"
     
+    -- [[ FIX: UPDATE STATUS TEXT TO "READY" ]] --
+    StatusText.Text = "Status: Ready to Launch"
+    StatusText.TextColor3 = Color3.fromRGB(50, 255, 100) -- Green
+    
     -- Hide Key Input System
     TweenObj(InputContainer, {Position = UDim2.new(-0.5, 0, 0.45, 0)}, 0.5)
     TweenObj(BtnContainer, {Position = UDim2.new(-0.5, 0, 0.75, 0)}, 0.5)
@@ -498,7 +501,6 @@ end)
 
 StableBtn.MouseButton1Click:Connect(function()
     PlaySound(SOUNDS.Success)
-    -- [[ NOTIFICATION ADDED HERE ]] --
     Notify("Punk X", "Welcome back, " .. LocalPlayer.DisplayName .. "!", 3)
     
     CloseLoader()
@@ -538,13 +540,11 @@ RedeemBtn.MouseButton1Click:Connect(function()
     end
 
     -- [NORMAL USERS]
-    -- Safe call to prevent freezing if Panda is down
     local success, valid, data = pcall(function() return KeyLib.Validate(key) end)
     
     if success and valid then
         PlaySound(SOUNDS.Success)
-        StatusText.Text = "Success!"
-        StatusText.TextColor3 = Color3.fromRGB(50, 255, 100)
+        -- We don't need to set StatusText here because ShowLauncherMenu overrides it
         
         SetExpiryData(data)
         Notify("Punk X", "Access Granted!", 2)
