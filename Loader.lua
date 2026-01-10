@@ -1,5 +1,5 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 21.1 (Final Polished & Secured)
+-- Version: 21.2 (Added Welcome Notification)
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -22,7 +22,7 @@ local Beta_URL     = "https://raw.githubusercontent.com/GBMofo/System-Files/main
 
 local UI_CONFIG = {
     Title = "PUNK X",
-    Version = "v21.1",
+    Version = "v21.2",
     AccentColor = Color3.fromRGB(0, 120, 255),
     BgColor = Color3.fromRGB(20, 20, 23),
     InputColor = Color3.fromRGB(30, 30, 35),
@@ -102,12 +102,10 @@ end
 -- // HELPER FUNCTIONS //
 
 local function LaunchPunkX(passedKey, targetUrl)
-    -- [[ FIXED: SAFE VARIABLE HANDOFF ]] --
-    -- Checks if getgenv exists to prevent crashes on bad executors
+    -- [[ SAFE VARIABLE HANDOFF ]] --
     if getgenv then
         getgenv().PUNK_X_KEY = passedKey
     end
-    -- Always set _G as a backup (Your executor checks both)
     _G.PUNK_X_KEY = passedKey 
     
     if passedKey == SECRET_DEV_KEY then 
@@ -500,13 +498,17 @@ end)
 
 StableBtn.MouseButton1Click:Connect(function()
     PlaySound(SOUNDS.Success)
+    -- [[ NOTIFICATION ADDED HERE ]] --
+    Notify("Punk X", "Welcome back, " .. LocalPlayer.DisplayName .. "!", 3)
+    
     CloseLoader()
-    -- Launch using the key validation (Dev or Public)
     LaunchPunkX(CURRENT_KEY, Main_URL)
 end)
 
 BetaBtn.MouseButton1Click:Connect(function()
     PlaySound(SOUNDS.Success)
+    Notify("Punk X", "Entering Developer Mode...", 3)
+    
     CloseLoader()
     LaunchPunkX(SECRET_DEV_KEY, Beta_URL)
 end)
