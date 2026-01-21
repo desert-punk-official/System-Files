@@ -163,6 +163,8 @@ local function SetExpiryData(data)
 end
 
 local function SaveEnvironmentPreference(envType)
+     print("[DEBUG] Saving ENV to:", ENV_FILE_NAME)  -- 🔴 ADD
+    print("[DEBUG] ENV Content:", envType)          -- 🔴 ADD
     if writefile then
         pcall(function()
             writefile(ENV_FILE_NAME, envType)
@@ -551,6 +553,8 @@ RedeemBtn.MouseButton1Click:Connect(function()
         StatusText.TextColor3 = Color3.fromRGB(0, 200, 255)
         
         -- Manual save for Dev Key
+            print("[DEBUG] Saving DEV KEY to:", KEY_FILE_NAME)  -- 🔴 ADD
+            print("[DEBUG] DEV KEY Content:", key)              -- 🔴 ADD
         if writefile then pcall(function() writefile(KEY_FILE_NAME, key) end) end
         
         CURRENT_KEY = key
@@ -566,6 +570,8 @@ RedeemBtn.MouseButton1Click:Connect(function()
         -- We don't need to set StatusText here because ShowLauncherMenu overrides it
         
         -- Save Key for next time
+            print("[DEBUG] Saving USER KEY to:", KEY_FILE_NAME)  -- 🔴 ADD
+            print("[DEBUG] USER KEY Content:", key)              -- 🔴 ADD
         if writefile then pcall(function() writefile(KEY_FILE_NAME, key) end) end
 
         SetExpiryData(data)
