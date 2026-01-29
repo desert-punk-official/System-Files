@@ -203,19 +203,31 @@ local function LaunchPunkX(passedKey, targetUrl)
         end
         
         print("[PUNK X] ✅ Main script downloaded successfully")
+        print("[PUNK X] Content size:", #content, "bytes")
+        print("[PUNK X] Creating loadstring...")
 
         local func, syntax_error = loadstring(content)
+        
+        print("[PUNK X] Loadstring created, checking for errors...")
+        
         if not func then
             PlaySound(SOUNDS.Error)
             Notify("Punk X", "Update Corrupted (Syntax Error)")
             warn("🚨 PUNK X CLOUD ERROR: " .. tostring(syntax_error))
+            print("[PUNK X] ❌ Syntax error in downloaded script")
             return
         end
+        
+        print("[PUNK X] ✅ Loadstring successful, executing script...")
 
         local run_success, run_err = pcall(func)
+        
+        print("[PUNK X] Script execution completed")
+        
         if not run_success then
             warn("[PUNK X EXCEPTION]:", run_err)
             Notify("Punk X", "Launch Failed (Internal Error)")
+            print("[PUNK X] ❌ Script execution error:", run_err)
         else
             print("[PUNK X] ✅ Script launched successfully")
         end
