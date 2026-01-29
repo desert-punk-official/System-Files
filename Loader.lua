@@ -118,7 +118,7 @@ if isfile and readfile and writefile and delfile then
 end
 
 -- // 1. LOAD KEY LIBRARY WITH TIMEOUT (VNG FIX) //
-print("[PUNK X] Downloading Auth.lua...")
+print("[PUNK X] Downloading Keysystem...")
 
 local success, KeyLib = false, nil
 local authLoaded = false
@@ -146,7 +146,7 @@ if not success or not KeyLib then
     return
 end
 
-print("[PUNK X] ✅ Auth.lua loaded successfully")
+print("[PUNK X] ✅ Keysystem loaded successfully")
 
 -- // HELPER FUNCTIONS //
 
