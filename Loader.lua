@@ -1,6 +1,11 @@
 -- // PUNK X OFFICIAL LOADER //
 -- Version: 21.9 (VNG Compatibility - Added HTTP Timeouts)
 
+-- ⚠️ CRITICAL: Wait for game to fully load BEFORE starting loader
+repeat task.wait(0.5) until game:IsLoaded()
+task.wait(3) -- Extra safety delay for VNG
+print("[PUNK X] Game loaded, starting loader...")
+
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
