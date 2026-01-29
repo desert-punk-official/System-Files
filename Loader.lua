@@ -165,36 +165,44 @@ local function LaunchPunkX(passedKey, targetUrl)
 
     task.spawn(function()
         print("[PUNK X] Downloading main script...")
+        print("[PUNK X] Target URL:", targetUrl)
         
-        -- 🔴 Download with timeout (VNG Fix)
+        -- 🔴 Download with timeout (VNG Fix - Increased to 60 seconds)
         local content = nil
         local downloadDone = false
         
         task.spawn(function()
+            print("[PUNK X] Starting HTTP request...")
             local success_dl, result = pcall(function() 
                 return game:HttpGet(targetUrl) 
             end)
             if success_dl then
+                print("[PUNK X] HTTP request completed, size:", #result, "bytes")
                 content = result
+            else
+                print("[PUNK X] HTTP request failed:", result)
             end
             downloadDone = true
         end)
         
-        -- Wait max 20 seconds
+        -- Wait max 60 seconds (increased for VNG)
         local waited = 0
-        while not downloadDone and waited < 20 do
+        while not downloadDone and waited < 60 do
             task.wait(0.5)
             waited = waited + 0.5
+            if waited % 5 == 0 then
+                print("[PUNK X] Still downloading... (" .. waited .. "s elapsed)")
+            end
         end
 
         if not content then
             PlaySound(SOUNDS.Error)
-            Notify("Punk X Error", "Download timeout. GitHub may be slow in your region. Please try again.")
-            print("[PUNK X] ❌ Main script download failed")
+            Notify("Punk X Error", "Download timeout (" .. waited .. "s). GitHub is very slow in Vietnam. Please try again.")
+            print("[PUNK X] ❌ Main script download failed after", waited, "seconds")
             return
         end
         
-        print("[PUNK X] ✅ Main script downloaded")
+        print("[PUNK X] ✅ Main script downloaded successfully")
 
         local func, syntax_error = loadstring(content)
         if not func then
