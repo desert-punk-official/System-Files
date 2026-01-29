@@ -112,15 +112,36 @@ if isfile and readfile and writefile and delfile then
     end
 end
 
--- // 1. LOAD KEY LIBRARY //
-local success, KeyLib = pcall(function()
-    return loadstring(game:HttpGet(KeyLogic_URL))()
+-- // 1. LOAD KEY LIBRARY WITH TIMEOUT (VNG FIX) //
+print("[PUNK X] Downloading Auth.lua...")
+
+local success, KeyLib = false, nil
+local authLoaded = false
+
+task.spawn(function()
+    local ok, result = pcall(function()
+        return loadstring(game:HttpGet(KeyLogic_URL))()
+    end)
+    if ok and result then
+        success, KeyLib = true, result
+    end
+    authLoaded = true
 end)
 
+-- Wait max 15 seconds
+local waited = 0
+while not authLoaded and waited < 15 do
+    task.wait(0.5)
+    waited = waited + 0.5
+end
+
 if not success or not KeyLib then
-    Notify("Punk X Error", "Connection Error. (Auth Lib)")
+    print("[PUNK X] ❌ Auth.lua failed to load")
+    Notify("Punk X Error", "Connection timeout. Please check your internet or try again.")
     return
 end
+
+print("[PUNK X] ✅ Auth.lua loaded successfully")
 
 -- // HELPER FUNCTIONS //
 
