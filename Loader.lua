@@ -165,7 +165,6 @@ local function LaunchPunkX(passedKey, targetUrl)
 
     task.spawn(function()
         print("[PUNK X] Downloading main script...")
-        print("[PUNK X] Target URL:", targetUrl)
         
         -- 🔴 Download with timeout (VNG Fix - Increased to 60 seconds)
         local content = nil
@@ -178,7 +177,9 @@ local function LaunchPunkX(passedKey, targetUrl)
             end)
             if success_dl then
                 print("[PUNK X] HTTP request completed, size:", #result, "bytes")
+                task.wait(0.1) -- Let VNG client breathe
                 content = result
+                task.wait(0.1) -- Let VNG client breathe
             else
                 print("[PUNK X] HTTP request failed:", result)
             end
@@ -194,6 +195,8 @@ local function LaunchPunkX(passedKey, targetUrl)
                 print("[PUNK X] Still downloading... (" .. waited .. "s elapsed)")
             end
         end
+        
+        task.wait(0.2) -- Critical: Let VNG client process
 
         if not content then
             PlaySound(SOUNDS.Error)
@@ -203,11 +206,17 @@ local function LaunchPunkX(passedKey, targetUrl)
         end
         
         print("[PUNK X] ✅ Main script downloaded successfully")
+        task.wait(0.1) -- Yield before size check
+        
         print("[PUNK X] Content size:", #content, "bytes")
+        task.wait(0.1) -- Yield before loadstring
+        
         print("[PUNK X] Creating loadstring...")
+        task.wait(0.1) -- Yield before actual loadstring call
 
         local func, syntax_error = loadstring(content)
         
+        task.wait(0.1) -- Yield after loadstring
         print("[PUNK X] Loadstring created, checking for errors...")
         
         if not func then
@@ -218,7 +227,9 @@ local function LaunchPunkX(passedKey, targetUrl)
             return
         end
         
+        task.wait(0.2) -- Critical yield before execution
         print("[PUNK X] ✅ Loadstring successful, executing script...")
+        task.wait(0.2) -- One more yield
 
         local run_success, run_err = pcall(func)
         
