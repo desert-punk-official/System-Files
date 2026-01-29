@@ -1,12 +1,5 @@
--- ⚠️ CRITICAL: Wait for game to fully load before running
-if not game:IsLoaded() then
-    game.Loaded:Wait()
-end
--- Add extra wait for VNG compatibility
-task.wait(2)
-print("[PUNK X] Game loaded, starting loader...")
 -- // PUNK X OFFICIAL LOADER //
--- Version: 21.8 (Fixed UI Layout + Silent Validation)
+-- Version: 21.9 (VNG Compatibility - Added HTTP Timeouts)
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -31,7 +24,7 @@ local Beta_URL     = "https://raw.githubusercontent.com/GBMofo/System-Files/main
 
 local UI_CONFIG = {
     Title = "PUNK X",
-    Version = "v21.8", -- 🔴 UPDATED VERSION (Fixed Layout + Silent Validation)
+    Version = "v21.9", -- 🔴 UPDATED VERSION (VNG Fix)
     AccentColor = Color3.fromRGB(0, 120, 255),
     BgColor = Color3.fromRGB(20, 20, 23),
     InputColor = Color3.fromRGB(30, 30, 35),
@@ -131,6 +124,7 @@ end
 
 -- // HELPER FUNCTIONS //
 
+-- 🔴 NEW: LaunchPunkX with timeout for VNG compatibility
 local function LaunchPunkX(passedKey, targetUrl)
     -- [[ SAFE VARIABLE HANDOFF ]] --
     if getgenv then
@@ -144,13 +138,37 @@ local function LaunchPunkX(passedKey, targetUrl)
     end
 
     task.spawn(function()
-        local success_dl, content = pcall(function() return game:HttpGet(targetUrl) end)
+        print("[PUNK X] Downloading main script...")
+        
+        -- 🔴 Download with timeout (VNG Fix)
+        local content = nil
+        local downloadDone = false
+        
+        task.spawn(function()
+            local success_dl, result = pcall(function() 
+                return game:HttpGet(targetUrl) 
+            end)
+            if success_dl then
+                content = result
+            end
+            downloadDone = true
+        end)
+        
+        -- Wait max 20 seconds
+        local waited = 0
+        while not downloadDone and waited < 20 do
+            task.wait(0.5)
+            waited = waited + 0.5
+        end
 
-        if not success_dl then
+        if not content then
             PlaySound(SOUNDS.Error)
-            Notify("Punk X Error", "Cloud Sync Failed (Network Error)")
+            Notify("Punk X Error", "Download timeout. GitHub may be slow in your region. Please try again.")
+            print("[PUNK X] ❌ Main script download failed")
             return
         end
+        
+        print("[PUNK X] ✅ Main script downloaded")
 
         local func, syntax_error = loadstring(content)
         if not func then
@@ -164,6 +182,8 @@ local function LaunchPunkX(passedKey, targetUrl)
         if not run_success then
             warn("[PUNK X EXCEPTION]:", run_err)
             Notify("Punk X", "Launch Failed (Internal Error)")
+        else
+            print("[PUNK X] ✅ Script launched successfully")
         end
     end)
 end
@@ -265,9 +285,10 @@ BgImage.ImageColor3 = Color3.fromRGB(150, 150, 150)
 BgImage.ZIndex = 1 
 Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 16)
 
-task.spawn(function()
-    pcall(function() ContentProvider:PreloadAsync({BgImage}) end)
-end)
+-- 🔴 DISABLED: Image preloading (VNG compatibility)
+-- task.spawn(function()
+--     pcall(function() ContentProvider:PreloadAsync({BgImage}) end)
+-- end)
 
 -- UI ELEMENTS
 local Title = Instance.new("TextLabel", MainFrame)
