@@ -1,3 +1,10 @@
+-- ⚠️ CRITICAL: Wait for game to fully load before running
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+-- Add extra wait for VNG compatibility
+task.wait(2)
+print("[PUNK X] Game loaded, starting loader...")
 -- // PUNK X OFFICIAL LOADER //
 -- Version: 21.8 (Fixed UI Layout + Silent Validation)
 
@@ -258,9 +265,9 @@ BgImage.ImageColor3 = Color3.fromRGB(150, 150, 150)
 BgImage.ZIndex = 1 
 Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 16)
 
---task.spawn(function()
-  --  pcall(function() ContentProvider:PreloadAsync({BgImage}) end)
---end)
+task.spawn(function()
+    pcall(function() ContentProvider:PreloadAsync({BgImage}) end)
+end)
 
 -- UI ELEMENTS
 local Title = Instance.new("TextLabel", MainFrame)
