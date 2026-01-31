@@ -3,7 +3,7 @@
 
 -- ⚠️ CRITICAL: Wait for game to fully load BEFORE starting loader
 repeat task.wait(0.5) until game:IsLoaded()
-task.wait(1.5) -- [ADJUSTED] Faster startup (was 3.0)
+task.wait(1) -- [ADJUSTED] Notification/Key System appears in 1 Second
 print("[PUNK X] Game loaded, starting loader...")
 
 local Players = game:GetService("Players")
@@ -177,9 +177,9 @@ local function LaunchPunkX(passedKey, targetUrl)
             end)
             if success_dl then
                 print("[PUNK X] HTTP request completed, size:", #result, "bytes")
-                task.wait(0.1) -- Let VNG client breathe
+                task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
                 content = result
-                task.wait(0.1) -- Let VNG client breathe
+                task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
             else
                 print("[PUNK X] HTTP request failed:", result)
             end
@@ -196,7 +196,7 @@ local function LaunchPunkX(passedKey, targetUrl)
             end
         end
         
-        task.wait(0.2) -- Critical: Let VNG client process
+        task.wait(0.1) -- [ADJUSTED] Critical yield reduced from 0.2
 
         if not content then
             PlaySound(SOUNDS.Error)
@@ -206,17 +206,17 @@ local function LaunchPunkX(passedKey, targetUrl)
         end
         
         print("[PUNK X] ✅ Main script downloaded successfully")
-        task.wait(0.1) -- Yield before size check
+        task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
         
         print("[PUNK X] Content size:", #content, "bytes")
-        task.wait(0.1) -- Yield before loadstring
+        task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
         
         print("[PUNK X] Creating loadstring...")
-        task.wait(0.1) -- Yield before actual loadstring call
+        task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
 
         local func, syntax_error = loadstring(content)
         
-        task.wait(0.1) -- Yield after loadstring
+        task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
         print("[PUNK X] Loadstring created, checking for errors...")
         
         if not func then
@@ -227,9 +227,10 @@ local function LaunchPunkX(passedKey, targetUrl)
             return
         end
         
-        task.wait(0.2) -- Critical yield before execution
+        task.wait(0.1) -- [ADJUSTED] Critical yield reduced from 0.2
         print("[PUNK X] ✅ Loadstring successful, executing script...")
-        task.wait(0.2) -- One more yield
+        
+        -- Total waits sum up to roughly 0.5s now
 
         local run_success, run_err = pcall(func)
         
