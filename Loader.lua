@@ -1,9 +1,9 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 22.0 (Luarmor Integration)
+-- Version: 22.0 (Stable / VNG Fixed)
 
 -- ⚠️ CRITICAL: Wait for game to fully load BEFORE starting loader
 repeat task.wait(0.5) until game:IsLoaded()
-task.wait(3) -- Extra safety delay for VNG
+task.wait(1.5) -- [ADJUSTED] Faster startup (was 3.0)
 print("[PUNK X] Game loaded, starting loader...")
 
 local Players = game:GetService("Players")
@@ -29,7 +29,7 @@ local Beta_URL     = "https://raw.githubusercontent.com/GBMofo/System-Files/main
 
 local UI_CONFIG = {
     Title = "PUNK X",
-    Version = "v22.0", -- 🔴 LUARMOR VERSION
+    Version = "v22.0", -- Stable Version
     AccentColor = Color3.fromRGB(0, 120, 255),
     BgColor = Color3.fromRGB(20, 20, 23),
     InputColor = Color3.fromRGB(30, 30, 35),
@@ -342,11 +342,6 @@ BgImage.ImageColor3 = Color3.fromRGB(150, 150, 150)
 BgImage.ZIndex = 1 
 Instance.new("UICorner", BgImage).CornerRadius = UDim.new(0, 16)
 
--- 🔴 DISABLED: Image preloading (VNG compatibility)
--- task.spawn(function()
---     pcall(function() ContentProvider:PreloadAsync({BgImage}) end)
--- end)
-
 -- UI ELEMENTS
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Text = UI_CONFIG.Title
@@ -478,17 +473,16 @@ StatusText.ZIndex = 2
 
 -- [[ SELECTION MENU - FIXED LAYOUT ]] --
 local SelectionContainer = Instance.new("Frame", MainFrame)
-SelectionContainer.Size = UDim2.new(0.85, 0, 0.5, 0) -- 🔴 FIXED: 50% height instead of 60%
-SelectionContainer.Position = UDim2.new(1.5, 0, 0.38, 0) -- 🔴 FIXED: Start at 38% instead of 45%
+SelectionContainer.Size = UDim2.new(0.85, 0, 0.5, 0) 
+SelectionContainer.Position = UDim2.new(1.5, 0, 0.38, 0) 
 SelectionContainer.AnchorPoint = Vector2.new(0.5, 0)
 SelectionContainer.BackgroundTransparency = 1
 SelectionContainer.ZIndex = 5
 
--- 🔴 FIXED BUTTON SIZES AND POSITIONS
 local OldUIBtn = Instance.new("TextButton", SelectionContainer)
 OldUIBtn.Name = "OldUIBtn"
-OldUIBtn.Size = UDim2.new(1, 0, 0.28, 0) -- 28% height
-OldUIBtn.Position = UDim2.new(0, 0, 0, 0) -- Top (0%)
+OldUIBtn.Size = UDim2.new(1, 0, 0.28, 0) 
+OldUIBtn.Position = UDim2.new(0, 0, 0, 0) 
 OldUIBtn.BackgroundColor3 = Color3.fromRGB(40, 200, 80) -- Green
 OldUIBtn.Text = "Load Old UI"
 OldUIBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -498,8 +492,8 @@ Instance.new("UICorner", OldUIBtn).CornerRadius = UDim.new(0, 8)
 
 local NewUIBtn = Instance.new("TextButton", SelectionContainer)
 NewUIBtn.Name = "NewUIBtn"
-NewUIBtn.Size = UDim2.new(1, 0, 0.28, 0) -- 28% height
-NewUIBtn.Position = UDim2.new(0, 0, 0.36, 0) -- 🔴 FIXED: 36% from top (28% + 8% gap)
+NewUIBtn.Size = UDim2.new(1, 0, 0.28, 0) 
+NewUIBtn.Position = UDim2.new(0, 0, 0.36, 0) 
 NewUIBtn.BackgroundColor3 = Color3.fromRGB(80, 140, 255) -- Blue
 NewUIBtn.Text = "Load New UI"
 NewUIBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -509,8 +503,8 @@ Instance.new("UICorner", NewUIBtn).CornerRadius = UDim.new(0, 8)
 
 local BetaBtn = Instance.new("TextButton", SelectionContainer)
 BetaBtn.Name = "BetaBtn"
-BetaBtn.Size = UDim2.new(1, 0, 0.28, 0) -- 28% height
-BetaBtn.Position = UDim2.new(0, 0, 0.72, 0) -- 🔴 FIXED: 72% from top (36% + 28% + 8% gap)
+BetaBtn.Size = UDim2.new(1, 0, 0.28, 0) 
+BetaBtn.Position = UDim2.new(0, 0, 0.72, 0) 
 BetaBtn.BackgroundColor3 = Color3.fromRGB(200, 150, 40) -- Orange
 BetaBtn.Text = "Load Beta (Dev)"
 BetaBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -612,7 +606,7 @@ local function ShowLauncherMenu(isDev)
         NewUIBtn.Visible = true
         OldUIBtn.Visible = true
         
-        -- 🔴 FIXED: 2 buttons layout (40% each with 10% gap)
+        -- 2 buttons layout (40% each with 10% gap)
         OldUIBtn.Size = UDim2.new(1, 0, 0.40, 0)
         OldUIBtn.Position = UDim2.new(0, 0, 0.05, 0) -- Start at 5% for centering
         NewUIBtn.Size = UDim2.new(1, 0, 0.40, 0)
@@ -620,7 +614,7 @@ local function ShowLauncherMenu(isDev)
     end
     
     -- Bring in Selection Menu
-    TweenObj(SelectionContainer, {Position = UDim2.new(0.5, 0, 0.38, 0)}, 0.5) -- 🔴 FIXED: Position at 38%
+    TweenObj(SelectionContainer, {Position = UDim2.new(0.5, 0, 0.38, 0)}, 0.5) 
 end
 
 -- Button Logic
