@@ -3,7 +3,7 @@
 
 -- ⚠️ CRITICAL: Wait for game to fully load BEFORE starting loader
 repeat task.wait(0.5) until game:IsLoaded()
-task.wait(1) -- [ADJUSTED] Notification/Key System appears in 1 Second
+task.wait(0.5) -- [ADJUSTED] Notification/Key System appears in 0.5 Second
 print("[PUNK X] Game loaded, starting loader...")
 
 local Players = game:GetService("Players")
