@@ -1,55 +1,45 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 22.0 (Stable / VNG Fixed + Anti-Detection + ULTRA SILENT)
+-- Version: 22.1 (Stable / BAC-82010 Bypass)
 
--- ⚠️ CRITICAL: Wait for game to fully load BEFORE starting loader
+-- ⚠️ CRITICAL: Wait for game to fully load
 repeat task.wait(0.5) until game:IsLoaded()
-task.wait(0.5) -- [ADJUSTED] Notification/Key System appears in 0.5 Second
+task.wait(1) -- Increased wait to let Anti-Cheat finish its initial scan
 
 -- ==========================================
--- 🛡️ FIX #1: SILENT CONSOLE (HIDE DTCs)
+-- 🛡️ FIX #1: SILENT CONSOLE
 -- ==========================================
--- CHANGE: Added silent console to hide print/warn from BAC
 local _original_print = print
 local _original_warn = warn
-
--- Redefine print and warn to be silent
 print = function(...) end
 warn = function(...) end
 
--- Optional: Keep originals for local debugging
 if getgenv then
     getgenv()._debug_print = _original_print
     getgenv()._debug_warn = _original_warn
 end
-_G._debug_print = _original_print
-_G._debug_warn = _original_warn
 -- ==========================================
 
--- REMOVED: All print/warn statements for maximum stealth
-
 -- ==========================================
--- 🛡️ FIX #2: CLONEREF SERVICES (AVOID WEAK TABLING)
+-- 🛡️ FIX #2: CLONEREF SERVICES
 -- ==========================================
--- CHANGE: Wrapped all services with cloneref() to avoid detection
 local cloneref = cloneref or function(obj) return obj end
 
 local Players = cloneref(game:GetService("Players"))
 local TweenService = cloneref(game:GetService("TweenService"))
-local StarterGui = cloneref(game:GetService("StarterGui"))
 local UserInputService = cloneref(game:GetService("UserInputService"))
 local CoreGui = cloneref(game:GetService("CoreGui"))
-local ContentProvider = cloneref(game:GetService("ContentProvider"))
 local VirtualUser = cloneref(game:GetService("VirtualUser"))
-local RunService = cloneref(game:GetService("RunService"))
 local LocalPlayer = Players.LocalPlayer
+local Workspace = cloneref(game:GetService("Workspace"))
+local Camera = Workspace.CurrentCamera
 -- ==========================================
 
 -- [1] CONFIGURATION
 local SECRET_DEV_KEY = "PUNK-X-8B29-4F1A-9C3D-7E11" 
 local KEY_FILE_NAME = "Punk-X-Files/punk-x-key.txt"
-local ENV_FILE_NAME = "Punk-X-Files/punk-x-env.txt" -- Stores Stable/Beta preference
+local ENV_FILE_NAME = "Punk-X-Files/punk-x-env.txt"
 
--- URLs (Cache Busted)
+-- URLs
 local KeyLogic_URL = "https://raw.githubusercontent.com/Silent-Caliber/System-Files/main/Auth.lua?t="..tostring(os.time())
 local Main_URL     = "https://raw.githubusercontent.com/Silent-Caliber/System-Files/main/Main.lua?t="..tostring(os.time())
 local New_URL      = "https://raw.githubusercontent.com/Silent-Caliber/System-Files/refs/heads/main/New.lua?t="..tostring(os.time())
@@ -57,7 +47,7 @@ local Beta_URL     = "https://raw.githubusercontent.com/GBMofo/System-Files/main
 
 local UI_CONFIG = {
     Title = "PUNK X",
-    Version = "v22.0", -- Stable Version
+    Version = "v22.1",
     AccentColor = Color3.fromRGB(0, 120, 255),
     BgColor = Color3.fromRGB(20, 20, 23),
     InputColor = Color3.fromRGB(30, 30, 35),
@@ -65,35 +55,83 @@ local UI_CONFIG = {
     Font = Enum.Font.GothamBold,
     FontRegular = Enum.Font.GothamMedium,
     DiscordLink = "https://discord.gg/JxEjAtdgWD",
-    BackgroundImage = "rbxthumb://type=Asset&id=83372655709716&w=768&h=432",
-    IconImage = "rbxthumb://type=Asset&id=128877949924034&w=150&h=150"
+    BackgroundImage = "rbxthumb://type=Asset&id=83372655709716&w=768&h=432"
 }
 
--- [SOUND CONFIG]
-local SOUNDS = {
-    Click   = 4590657391,
-    Success = 4590662766,
-    Error   = 550209561
-}
-
+local SOUNDS = { Click = 4590657391, Success = 4590662766, Error = 550209561 }
 local CURRENT_KEY = "" 
 
 -- // SECURE PARENTING //
 local function GetSecureParent()
-    if gethui then return gethui()
-    elseif CoreGui:FindFirstChild("RobloxGui") then return CoreGui
-    else return LocalPlayer:WaitForChild("PlayerGui") end
+    -- 🛡️ FIX: Prefer gethui(), fall back to CoreGui, avoid RobloxGui (flagged)
+    if gethui then return gethui() end
+    if syn and syn.protect_gui then 
+        local gui = Instance.new("ScreenGui")
+        syn.protect_gui(gui)
+        gui.Parent = CoreGui
+        return gui
+    end
+    return CoreGui
 end
 
--- // HELPER: BRANDED NOTIFICATION //
--- NO CHANGE: Keeping notifications with logo as-is
+-- // 🛡️ CUSTOM NOTIFICATION SYSTEM (Replaces SetCore) //
+-- BAC detects StarterGui:SetCore, so we make our own inside our Secure GUI
 local function Notify(title, text, duration)
-    StarterGui:SetCore("SendNotification", {
-        Title = title,
-        Text = text,
-        Duration = duration or 3,
-        Icon = UI_CONFIG.IconImage
-    })
+    task.spawn(function()
+        local gui = GetSecureParent():FindFirstChild("PunkX_ModernUI")
+        if not gui then return end
+        
+        local notifFrame = Instance.new("Frame")
+        notifFrame.Name = "Notif_" ..  tostring(math.random(1,1000))
+        notifFrame.Size = UDim2.new(0, 250, 0, 60)
+        notifFrame.Position = UDim2.new(1, 20, 0.85, 0) -- Start off screen
+        notifFrame.BackgroundColor3 = UI_CONFIG.BgColor
+        notifFrame.BorderSizePixel = 0
+        notifFrame.Parent = gui
+        
+        local uic = Instance.new("UICorner", notifFrame)
+        uic.CornerRadius = UDim.new(0, 8)
+        
+        local stroke = Instance.new("UIStroke", notifFrame)
+        stroke.Color = UI_CONFIG.AccentColor
+        stroke.Thickness = 1.5
+        
+        local tLabel = Instance.new("TextLabel", notifFrame)
+        tLabel.Text = title
+        tLabel.Font = UI_CONFIG.Font
+        tLabel.TextColor3 = UI_CONFIG.AccentColor
+        tLabel.TextSize = 14
+        tLabel.Position = UDim2.new(0.05, 0, 0.1, 0)
+        tLabel.Size = UDim2.new(0.9, 0, 0.3, 0)
+        tLabel.BackgroundTransparency = 1
+        tLabel.TextXAlignment = Enum.TextXAlignment.Left
+        
+        local mLabel = Instance.new("TextLabel", notifFrame)
+        mLabel.Text = text
+        mLabel.Font = UI_CONFIG.FontRegular
+        mLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        mLabel.TextSize = 12
+        mLabel.Position = UDim2.new(0.05, 0, 0.45, 0)
+        mLabel.Size = UDim2.new(0.9, 0, 0.45, 0)
+        mLabel.BackgroundTransparency = 1
+        mLabel.TextXAlignment = Enum.TextXAlignment.Left
+        mLabel.TextWrapped = true
+
+        -- Animate In
+        TweenService:Create(notifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Position = UDim2.new(1, -270, 0.85, 0)
+        }):Play()
+        
+        task.wait(duration or 3)
+        
+        -- Animate Out
+        local outTween = TweenService:Create(notifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Position = UDim2.new(1, 20, 0.85, 0)
+        })
+        outTween:Play()
+        outTween.Completed:Wait()
+        notifFrame:Destroy()
+    end)
 end
 
 -- // SOUND HELPER //
@@ -102,7 +140,7 @@ local function PlaySound(id, volume)
         local s = Instance.new("Sound")
         s.SoundId = "rbxassetid://" .. tostring(id)
         s.Volume = volume or 1
-        s.Parent = game:GetService("SoundService")
+        s.Parent = cloneref(game:GetService("SoundService"))
         s.PlayOnRemove = true
         s:Destroy()
     end)
@@ -123,26 +161,12 @@ local function ShakeUI(guiObject)
     TweenService:Create(guiObject, TweenInfo.new(duration), {Position = originalPos}):Play()
 end
 
-Notify("Punk X", "Initializing... Checking Resources")
-
 -- [[ ✅ ENSURE FOLDER EXISTS ]] --
 if isfolder and not isfolder("Punk-X-Files") then
     makefolder("Punk-X-Files")
 end
 
--- [[ 🟢 MIGRATE OLD ENV FILE ]]
-if isfile and readfile and writefile and delfile then
-    -- Check if old env exists in root
-    if isfile("punk-x-env.txt") and not isfile("Punk-X-Files/punk-x-env.txt") then
-        pcall(function()
-            local env = readfile("punk-x-env.txt")
-            writefile("Punk-X-Files/punk-x-env.txt", env)
-            delfile("punk-x-env.txt")
-        end)
-    end
-end
-
--- // 1. LOAD KEY LIBRARY WITH TIMEOUT (VNG FIX) //
+-- // 1. LOAD KEY LIBRARY //
 local success, KeyLib = false, nil
 local authLoaded = false
 
@@ -156,7 +180,6 @@ task.spawn(function()
     authLoaded = true
 end)
 
--- Wait max 15 seconds
 local waited = 0
 while not authLoaded and waited < 15 do
     task.wait(0.5)
@@ -164,148 +187,106 @@ while not authLoaded and waited < 15 do
 end
 
 if not success or not KeyLib then
-    Notify("Punk X Error", "Connection timeout. Please check your internet or try again.")
+    -- Cannot notify yet as GUI isn't built, just return silently or print to dev console
     return
 end
 
 -- // HELPER FUNCTIONS //
 
--- 🔴 NEW: LaunchPunkX with timeout for VNG compatibility
 local function LaunchPunkX(passedKey, targetUrl)
-    -- [[ SAFE VARIABLE HANDOFF ]] --
-    if getgenv then
-        getgenv().PUNK_X_KEY = passedKey
-    end
+    if getgenv then getgenv().PUNK_X_KEY = passedKey end
     _G.PUNK_X_KEY = passedKey 
     
-    if passedKey == SECRET_DEV_KEY then 
-        local env = (targetUrl == Beta_URL) and "BETA" or "STABLE"
-        Notify("Punk X", "🛠️ Environment: " .. env) 
-    end
+    Notify("Punk X", "Launching Script...") 
 
     task.spawn(function()
-        -- 🔴 Download with timeout (VNG Fix - Increased to 60 seconds)
         local content = nil
         local downloadDone = false
         
         task.spawn(function()
-            local success_dl, result = pcall(function() 
-                return game:HttpGet(targetUrl) 
-            end)
+            local success_dl, result = pcall(function() return game:HttpGet(targetUrl) end)
             if success_dl then
-                task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
+                task.wait(0.05)
                 content = result
-                task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
+                task.wait(0.05)
             end
             downloadDone = true
         end)
         
-        -- Wait max 60 seconds (increased for VNG)
         local waited = 0
         while not downloadDone and waited < 60 do
             task.wait(0.5)
             waited = waited + 0.5
         end
         
-        task.wait(0.1) -- [ADJUSTED] Critical yield reduced from 0.2
-
         if not content then
             PlaySound(SOUNDS.Error)
-            Notify("Punk X Error", "Download timeout (" .. waited .. "s). GitHub is very slow in Vietnam. Please try again.")
+            Notify("Punk X Error", "Download failed.")
             return
         end
         
-        task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
-        task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
-        task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
-
         local func, syntax_error = loadstring(content)
-        
-        task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
-        
         if not func then
-            PlaySound(SOUNDS.Error)
-            Notify("Punk X", "Update Corrupted (Syntax Error)")
+            Notify("Punk X", "Syntax Error in Script")
             return
         end
         
-        task.wait(0.1) -- [ADJUSTED] Critical yield reduced from 0.2
-        
-        -- Total waits sum up to roughly 0.5s now
-
         local run_success, run_err = pcall(func)
-        
         if not run_success then
-            Notify("Punk X", "Launch Failed (Internal Error)")
+            Notify("Punk X", "Execution Failed")
         end
     end)
 end
 
--- 🔴 UPDATED: Handle new API response format
 local function SetExpiryData(data)
     local expiryText = "Active"
     local isPremium = false
     
     if data and type(data) == "table" then
-        -- NEW API FORMAT (from updated KeySystem)
-        if data.expireDate then
-            expiryText = data.expireDate
-        end
-        if data.isPremium then
-            isPremium = data.isPremium
-        end
-        
-        -- OLD API FORMAT (fallback for compatibility)
-        if data.Key_Information and data.Key_Information.expiresAt then
-            expiryText = data.Key_Information.expiresAt
-        elseif data.expiresAt then
-            expiryText = data.expiresAt
-        end
+        if data.expireDate then expiryText = data.expireDate end
+        if data.isPremium then isPremium = data.isPremium end
+        if data.Key_Information and data.Key_Information.expiresAt then expiryText = data.Key_Information.expiresAt end
     end
     
-    -- Set global variables
     if getgenv then 
         getgenv().PUNK_X_EXPIRY = expiryText
-        getgenv().PUNK_X_PREMIUM = isPremium -- 🔴 NEW: Premium status
+        getgenv().PUNK_X_PREMIUM = isPremium 
     end
     _G.PUNK_X_EXPIRY = expiryText
-    _G.PUNK_X_PREMIUM = isPremium -- 🔴 NEW: Premium status
+    _G.PUNK_X_PREMIUM = isPremium 
     
-    -- 🔴 NEW: Show premium status in notification
     if isPremium then
-        Notify("Punk X", "🌟 Premium Access Granted!", 3)
+        Notify("Punk X", "🌟 Premium Active!")
     end
 end
 
 local function SaveEnvironmentPreference(envType)
     if writefile then
-        pcall(function()
-            writefile(ENV_FILE_NAME, envType)
-        end)
+        pcall(function() writefile(ENV_FILE_NAME, envType) end)
     end
 end
 
 -- // 3. BUILD UI //
 
-for _, v in pairs(GetSecureParent():GetChildren()) do
-    if v.Name == "PunkX_ModernUI" then v:Destroy() end
-end
-
-local function TweenObj(obj, props, time)
-    TweenService:Create(obj, TweenInfo.new(time or 0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), props):Play()
+-- Cleanup old
+local parent = GetSecureParent()
+if parent:FindFirstChild("PunkX_ModernUI") then
+    parent:FindFirstChild("PunkX_ModernUI"):Destroy()
 end
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "PunkX_ModernUI"
-ScreenGui.Parent = GetSecureParent()
+ScreenGui.Parent = parent
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.ResetOnSpawn = false
-ScreenGui.DisplayOrder = 2147483647 
+ScreenGui.DisplayOrder = 100 -- Reduced High DisplayOrder (BAC Check)
 ScreenGui.IgnoreGuiInset = true 
 
-local Blur = Instance.new("BlurEffect", game.Lighting)
+-- 🛡️ FIX #3: PARENT BLUR TO CAMERA, NOT LIGHTING
+local Blur = Instance.new("BlurEffect")
 Blur.Name = "PunkX_Blur"
 Blur.Size = 0 
+Blur.Parent = Camera -- BYPASSES LIGHTING CHECK
 
 -- Main Frame
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -465,7 +446,7 @@ StatusText.Font = Enum.Font.Gotham
 StatusText.TextSize = 11
 StatusText.ZIndex = 2
 
--- [[ SELECTION MENU - FIXED LAYOUT ]] --
+-- [[ SELECTION MENU ]] --
 local SelectionContainer = Instance.new("Frame", MainFrame)
 SelectionContainer.Size = UDim2.new(0.85, 0, 0.5, 0) 
 SelectionContainer.Position = UDim2.new(1.5, 0, 0.38, 0) 
@@ -475,8 +456,6 @@ SelectionContainer.ZIndex = 5
 
 local OldUIBtn = Instance.new("TextButton", SelectionContainer)
 OldUIBtn.Name = "OldUIBtn"
-OldUIBtn.Size = UDim2.new(1, 0, 0.28, 0) 
-OldUIBtn.Position = UDim2.new(0, 0, 0, 0) 
 OldUIBtn.BackgroundColor3 = Color3.fromRGB(40, 200, 80) -- Green
 OldUIBtn.Text = "Load Old UI"
 OldUIBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -486,8 +465,6 @@ Instance.new("UICorner", OldUIBtn).CornerRadius = UDim.new(0, 8)
 
 local NewUIBtn = Instance.new("TextButton", SelectionContainer)
 NewUIBtn.Name = "NewUIBtn"
-NewUIBtn.Size = UDim2.new(1, 0, 0.28, 0) 
-NewUIBtn.Position = UDim2.new(0, 0, 0.36, 0) 
 NewUIBtn.BackgroundColor3 = Color3.fromRGB(80, 140, 255) -- Blue
 NewUIBtn.Text = "Load New UI"
 NewUIBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -497,8 +474,6 @@ Instance.new("UICorner", NewUIBtn).CornerRadius = UDim.new(0, 8)
 
 local BetaBtn = Instance.new("TextButton", SelectionContainer)
 BetaBtn.Name = "BetaBtn"
-BetaBtn.Size = UDim2.new(1, 0, 0.28, 0) 
-BetaBtn.Position = UDim2.new(0, 0, 0.72, 0) 
 BetaBtn.BackgroundColor3 = Color3.fromRGB(200, 150, 40) -- Orange
 BetaBtn.Text = "Load Beta (Dev)"
 BetaBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -507,7 +482,12 @@ BetaBtn.TextSize = 14
 Instance.new("UICorner", BetaBtn).CornerRadius = UDim.new(0, 8)
 
 -- // 4. ANIMATIONS //
+local function TweenObj(obj, props, time)
+    TweenService:Create(obj, TweenInfo.new(time or 0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), props):Play()
+end
+
 local function OpenLoader()
+    Notify("Punk X", "Welcome Back!")
     MainFrame.Visible = true
     TweenObj(Blur, {Size = 15}, 0.5)
     TweenObj(MainFrame, {Size = UDim2.new(0.5, 0, 0.45, 0)}, 0.4) 
@@ -567,27 +547,20 @@ local function MakeDraggable(gui)
 end
 MakeDraggable(MainFrame)
 
--- // FUNCTIONS //
-
--- [[ LOGIC: Show appropriate buttons based on user type ]]
+-- // LOGIC //
 local function ShowLauncherMenu(isDev)
     SubTitle.Text = "Select Environment"
-    
     StatusText.Text = "Status: Ready to Launch"
-    StatusText.TextColor3 = Color3.fromRGB(50, 255, 100) -- Green
+    StatusText.TextColor3 = Color3.fromRGB(50, 255, 100)
     
-    -- Hide Key Input System
     TweenObj(InputContainer, {Position = UDim2.new(-0.5, 0, 0.45, 0)}, 0.5)
     TweenObj(BtnContainer, {Position = UDim2.new(-0.5, 0, 0.75, 0)}, 0.5)
     
-    -- Configure Selection Menu based on Key Type
     if isDev then
-        -- Developer: Show ALL 3 Buttons
         BetaBtn.Visible = true
         NewUIBtn.Visible = true
         OldUIBtn.Visible = true
         
-        -- 3 buttons layout (28% each with 8% gaps)
         OldUIBtn.Size = UDim2.new(1, 0, 0.28, 0)
         OldUIBtn.Position = UDim2.new(0, 0, 0, 0)
         NewUIBtn.Size = UDim2.new(1, 0, 0.28, 0)
@@ -595,35 +568,27 @@ local function ShowLauncherMenu(isDev)
         BetaBtn.Size = UDim2.new(1, 0, 0.28, 0)
         BetaBtn.Position = UDim2.new(0, 0, 0.72, 0)
     else
-        -- Normal User: Hide Beta, Show Old UI + New UI
         BetaBtn.Visible = false
         NewUIBtn.Visible = true
         OldUIBtn.Visible = true
         
-        -- 2 buttons layout (40% each with 10% gap)
         OldUIBtn.Size = UDim2.new(1, 0, 0.40, 0)
-        OldUIBtn.Position = UDim2.new(0, 0, 0.05, 0) -- Start at 5% for centering
+        OldUIBtn.Position = UDim2.new(0, 0, 0.05, 0)
         NewUIBtn.Size = UDim2.new(1, 0, 0.40, 0)
-        NewUIBtn.Position = UDim2.new(0, 0, 0.55, 0) -- 5% + 40% + 10% gap = 55%
+        NewUIBtn.Position = UDim2.new(0, 0, 0.55, 0)
     end
     
-    -- Bring in Selection Menu
     TweenObj(SelectionContainer, {Position = UDim2.new(0.5, 0, 0.38, 0)}, 0.5) 
 end
 
--- Button Logic
 PasteBtn.MouseButton1Click:Connect(function()
     if getclipboard then
         local clip = getclipboard()
         if clip and clip ~= "" then
-            -- 🔴 FIX: Remove ALL whitespace when pasting
             clip = clip:gsub("%s+", "")
-            
             KeyBox.Text = clip
             KeyBox:ReleaseFocus() 
             PlaySound(SOUNDS.Click)
-            
-            -- 🔴 OPTIONAL: Show confirmation
             StatusText.Text = "Key pasted! Click Redeem."
             StatusText.TextColor3 = Color3.fromRGB(100, 200, 255)
         else
@@ -632,9 +597,6 @@ PasteBtn.MouseButton1Click:Connect(function()
             PlaySound(SOUNDS.Error)
             ShakeUI(InputContainer)
         end
-    else
-        StatusText.Text = "Not Supported!"
-        PlaySound(SOUNDS.Error)
     end
 end)
 
@@ -642,7 +604,7 @@ DiscordBtn.MouseButton1Click:Connect(function()
     PlaySound(SOUNDS.Click) 
     if setclipboard then
         setclipboard(UI_CONFIG.DiscordLink)
-        Notify("Punk X", "Discord Invite Copied!", 3)
+        Notify("Punk X", "Discord Copied!")
     end
 end)
 
@@ -651,17 +613,14 @@ GetKeyBtn.MouseButton1Click:Connect(function()
     if setclipboard then
         setclipboard(KeyLib.GetKeyURL())
         GetKeyBtn.Text = "Copied!"
-        Notify("Punk X", "Key Link Copied!", 3)
+        Notify("Punk X", "Key Link Copied!")
     end
     task.wait(1.5)
     GetKeyBtn.Text = "Get Key"
 end)
 
--- [[ SAVING PREFERENCE LOGIC ]] --
 OldUIBtn.MouseButton1Click:Connect(function()
     PlaySound(SOUNDS.Success)
-    Notify("Punk X", "Loading Old UI...", 3)
-    
     SaveEnvironmentPreference("OLD")
     CloseLoader()
     LaunchPunkX(CURRENT_KEY, Main_URL)
@@ -669,8 +628,6 @@ end)
 
 NewUIBtn.MouseButton1Click:Connect(function()
     PlaySound(SOUNDS.Success)
-    Notify("Punk X", "Loading New UI...", 3)
-    
     SaveEnvironmentPreference("NEW")
     CloseLoader()
     LaunchPunkX(CURRENT_KEY, New_URL)
@@ -678,8 +635,6 @@ end)
 
 BetaBtn.MouseButton1Click:Connect(function()
     PlaySound(SOUNDS.Success)
-    Notify("Punk X", "Entering Developer Mode...", 3)
-    
     SaveEnvironmentPreference("BETA")
     CloseLoader()
     LaunchPunkX(SECRET_DEV_KEY, Beta_URL)
@@ -695,35 +650,26 @@ RedeemBtn.MouseButton1Click:Connect(function()
     
     local key = KeyBox.Text:gsub("%s+", "") 
     
-    -- [DEV BYPASS]
     if key == SECRET_DEV_KEY then
         PlaySound(SOUNDS.Success)
         StatusText.Text = "Developer Mode"
         StatusText.TextColor3 = Color3.fromRGB(0, 200, 255)
-        
-        -- Manual save for Dev Key
         if writefile then pcall(function() writefile(KEY_FILE_NAME, key) end) end
-        
         CURRENT_KEY = key
-        ShowLauncherMenu(true) -- True = Dev Menu (Show Beta)
+        ShowLauncherMenu(true)
         isChecking = false
         return 
     end
 
-    -- [NORMAL USERS] - 🔴 WEBHOOK WILL FIRE HERE (silent = false by default)
     local success, valid, data = pcall(function() return KeyLib.Validate(key) end)
     
     if success and valid then
         PlaySound(SOUNDS.Success)
-        
-        -- Save Key for next time
         if writefile then pcall(function() writefile(KEY_FILE_NAME, key) end) end
-
         SetExpiryData(data)
         Notify("Punk X", "Access Granted!", 2)
-        
         CURRENT_KEY = key
-        ShowLauncherMenu(false) -- False = Public Menu (Hide Beta)
+        ShowLauncherMenu(false)
     else
         PlaySound(SOUNDS.Error)
         StatusText.Text = (success and "Invalid Key" or "Connection Error")
@@ -731,89 +677,47 @@ RedeemBtn.MouseButton1Click:Connect(function()
         KeyBox.Text = "" 
         ShakeUI(InputContainer) 
     end
-    
     isChecking = false
     RedeemBtn.Text = "Redeem"
 end)
 
--- // 6. AUTO-LOGIN & AUTO-LOAD CHECK //
+-- // AUTO-LOGIN //
 local autoLogged = false
 local saved = KeyLib.GetSavedKey()
 local env_preference = nil
 
--- Check for saved Environment Preference
-if isfile and isfile(ENV_FILE_NAME) then
-    env_preference = readfile(ENV_FILE_NAME)
-end
+if isfile and isfile(ENV_FILE_NAME) then env_preference = readfile(ENV_FILE_NAME) end
 
 if saved then
-    -- [[ DEV AUTO LOGIN ]]
     if saved == SECRET_DEV_KEY then
         CURRENT_KEY = saved
-        
-        -- If preference exists, SKIP UI
-        if env_preference == "BETA" then
-            Notify("Punk X", "Auto-Loading Beta...", 3)
-            LaunchPunkX(SECRET_DEV_KEY, Beta_URL)
-            ScreenGui:Destroy()
-            Blur:Destroy()
-            return -- STOP HERE
-        elseif env_preference == "OLD" or env_preference == "STABLE" then
-            Notify("Punk X", "Auto-Loading Old UI...", 3)
-            LaunchPunkX(SECRET_DEV_KEY, Main_URL)
-            ScreenGui:Destroy()
-            Blur:Destroy()
-            return -- STOP HERE
-        elseif env_preference == "NEW" then
-            Notify("Punk X", "Auto-Loading New UI...", 3)
-            LaunchPunkX(SECRET_DEV_KEY, New_URL)
-            ScreenGui:Destroy()
-            Blur:Destroy()
-            return -- STOP HERE
-        end
-
-        -- If no preference, show menu
+        if env_preference == "BETA" then LaunchPunkX(SECRET_DEV_KEY, Beta_URL) ScreenGui:Destroy() Blur:Destroy() return
+        elseif env_preference == "OLD" or env_preference == "STABLE" then LaunchPunkX(SECRET_DEV_KEY, Main_URL) ScreenGui:Destroy() Blur:Destroy() return
+        elseif env_preference == "NEW" then LaunchPunkX(SECRET_DEV_KEY, New_URL) ScreenGui:Destroy() Blur:Destroy() return end
         OpenLoader()
         KeyBox.Text = saved
         ShowLauncherMenu(true)
         autoLogged = true
     else
-        -- [[ PUBLIC AUTO LOGIN ]] - 🔴 SILENT VALIDATION (no webhook)
         local success, valid, data = pcall(function() return KeyLib.Validate(saved, false, true) end)
         if success and valid then 
             CURRENT_KEY = saved
             SetExpiryData(data)
-
-            -- Public users can use OLD or NEW UI
-            if env_preference == "OLD" or env_preference == "STABLE" then
-                Notify("Punk X", "Auto-Loading Old UI...", 3)
-                LaunchPunkX(saved, Main_URL)
-                ScreenGui:Destroy()
-                Blur:Destroy()
-                return -- STOP HERE
-            elseif env_preference == "NEW" then
-                Notify("Punk X", "Auto-Loading New UI...", 3)
-                LaunchPunkX(saved, New_URL)
-                ScreenGui:Destroy()
-                Blur:Destroy()
-                return -- STOP HERE
-            end
-
-            -- If no preference, show menu
+            if env_preference == "OLD" or env_preference == "STABLE" then LaunchPunkX(saved, Main_URL) ScreenGui:Destroy() Blur:Destroy() return
+            elseif env_preference == "NEW" then LaunchPunkX(saved, New_URL) ScreenGui:Destroy() Blur:Destroy() return end
             OpenLoader()
             KeyBox.Text = saved
-            ShowLauncherMenu(false) -- Show Public Menu
+            ShowLauncherMenu(false)
             autoLogged = true
         end
     end
 end
 
--- Only Show Loader if Auto-Login Failed or No Preference Found
-if not autoLogged then
-    OpenLoader()
-end
+if not autoLogged then OpenLoader() end
 
--- // 7. ANTI-AFK //
+-- // ANTI-AFK //
+-- Using VirtualUser might also be risky for BAC, but keeping as requested
+-- If you get kicked after loading, remove this block
 LocalPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
