@@ -1,9 +1,9 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 22.1 (Stable / BAC-82010 Bypass)
+-- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
 
 -- ⚠️ CRITICAL: Wait for game to fully load
 repeat task.wait(0.5) until game:IsLoaded()
-task.wait(1) -- Increased wait to let Anti-Cheat finish its initial scan
+task.wait(1.5) -- Extended wait for AC stabilization
 
 -- ==========================================
 -- 🛡️ FIX #1: SILENT CONSOLE
@@ -28,10 +28,7 @@ local Players = cloneref(game:GetService("Players"))
 local TweenService = cloneref(game:GetService("TweenService"))
 local UserInputService = cloneref(game:GetService("UserInputService"))
 local CoreGui = cloneref(game:GetService("CoreGui"))
-local VirtualUser = cloneref(game:GetService("VirtualUser"))
 local LocalPlayer = Players.LocalPlayer
-local Workspace = cloneref(game:GetService("Workspace"))
-local Camera = Workspace.CurrentCamera
 -- ==========================================
 
 -- [1] CONFIGURATION
@@ -47,7 +44,7 @@ local Beta_URL     = "https://raw.githubusercontent.com/GBMofo/System-Files/main
 
 local UI_CONFIG = {
     Title = "PUNK X",
-    Version = "v22.1",
+    Version = "v22.2",
     AccentColor = Color3.fromRGB(0, 120, 255),
     BgColor = Color3.fromRGB(20, 20, 23),
     InputColor = Color3.fromRGB(30, 30, 35),
@@ -60,10 +57,12 @@ local UI_CONFIG = {
 
 local SOUNDS = { Click = 4590657391, Success = 4590662766, Error = 550209561 }
 local CURRENT_KEY = "" 
+-- 🛡️ RANDOMIZE NAME: Prevents name-based detection
+local GUI_RANDOM_NAME = "Px_" .. tostring(math.random(10000, 99999)) 
 
 -- // SECURE PARENTING //
 local function GetSecureParent()
-    -- 🛡️ FIX: Prefer gethui(), fall back to CoreGui, avoid RobloxGui (flagged)
+    -- 🛡️ FIX: Prefer gethui() to hide from CoreGui scans
     if gethui then return gethui() end
     if syn and syn.protect_gui then 
         local gui = Instance.new("ScreenGui")
@@ -74,17 +73,18 @@ local function GetSecureParent()
     return CoreGui
 end
 
--- // 🛡️ CUSTOM NOTIFICATION SYSTEM (Replaces SetCore) //
--- BAC detects StarterGui:SetCore, so we make our own inside our Secure GUI
+-- // 🛡️ CUSTOM NOTIFICATION (Stealth Mode) //
+-- Replaces StarterGui:SetCore to avoid BAC-82010
 local function Notify(title, text, duration)
     task.spawn(function()
-        local gui = GetSecureParent():FindFirstChild("PunkX_ModernUI")
+        local parent = GetSecureParent()
+        local gui = parent:FindFirstChild(GUI_RANDOM_NAME)
         if not gui then return end
         
         local notifFrame = Instance.new("Frame")
-        notifFrame.Name = "Notif_" ..  tostring(math.random(1,1000))
+        notifFrame.Name = "N_" ..  tostring(math.random(1,1000))
         notifFrame.Size = UDim2.new(0, 250, 0, 60)
-        notifFrame.Position = UDim2.new(1, 20, 0.85, 0) -- Start off screen
+        notifFrame.Position = UDim2.new(1, 20, 0.85, 0)
         notifFrame.BackgroundColor3 = UI_CONFIG.BgColor
         notifFrame.BorderSizePixel = 0
         notifFrame.Parent = gui
@@ -117,14 +117,12 @@ local function Notify(title, text, duration)
         mLabel.TextXAlignment = Enum.TextXAlignment.Left
         mLabel.TextWrapped = true
 
-        -- Animate In
         TweenService:Create(notifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
             Position = UDim2.new(1, -270, 0.85, 0)
         }):Play()
         
         task.wait(duration or 3)
         
-        -- Animate Out
         local outTween = TweenService:Create(notifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
             Position = UDim2.new(1, 20, 0.85, 0)
         })
@@ -187,8 +185,7 @@ while not authLoaded and waited < 15 do
 end
 
 if not success or not KeyLib then
-    -- Cannot notify yet as GUI isn't built, just return silently or print to dev console
-    return
+    return -- Fail silently or check console
 end
 
 -- // HELPER FUNCTIONS //
@@ -270,23 +267,23 @@ end
 
 -- Cleanup old
 local parent = GetSecureParent()
-if parent:FindFirstChild("PunkX_ModernUI") then
-    parent:FindFirstChild("PunkX_ModernUI"):Destroy()
+for _, v in pairs(parent:GetChildren()) do
+    -- Remove any GUI that looks like ours
+    if v.Name:match("Px_") or v.Name == "PunkX_ModernUI" then
+        v:Destroy()
+    end
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "PunkX_ModernUI"
+ScreenGui.Name = GUI_RANDOM_NAME -- Randomized Name
 ScreenGui.Parent = parent
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.ResetOnSpawn = false
-ScreenGui.DisplayOrder = 100 -- Reduced High DisplayOrder (BAC Check)
+-- Removed DisplayOrder modification (Standard 0 is safer)
 ScreenGui.IgnoreGuiInset = true 
 
--- 🛡️ FIX #3: PARENT BLUR TO CAMERA, NOT LIGHTING
-local Blur = Instance.new("BlurEffect")
-Blur.Name = "PunkX_Blur"
-Blur.Size = 0 
-Blur.Parent = Camera -- BYPASSES LIGHTING CHECK
+-- ⚠️ REMOVED BLUR EFFECT (BAC-7205/82010 Fix) ⚠️
+-- Do not add Instance.new("BlurEffect") anywhere
 
 -- Main Frame
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -489,16 +486,15 @@ end
 local function OpenLoader()
     Notify("Punk X", "Welcome Back!")
     MainFrame.Visible = true
-    TweenObj(Blur, {Size = 15}, 0.5)
+    -- REMOVED BLUR TWEEN
     TweenObj(MainFrame, {Size = UDim2.new(0.5, 0, 0.45, 0)}, 0.4) 
     TweenObj(Stroke, {Transparency = 0.5}, 0.8) 
 end
 
 local function CloseLoader()
-    TweenObj(Blur, {Size = 0}, 0.5)
+    -- REMOVED BLUR TWEEN
     TweenObj(MainFrame, {Position = UDim2.new(0.5, 0, 1.5, 0)}, 0.6)
     task.wait(0.6)
-    Blur:Destroy()
     ScreenGui:Destroy()
 end
 
@@ -691,9 +687,9 @@ if isfile and isfile(ENV_FILE_NAME) then env_preference = readfile(ENV_FILE_NAME
 if saved then
     if saved == SECRET_DEV_KEY then
         CURRENT_KEY = saved
-        if env_preference == "BETA" then LaunchPunkX(SECRET_DEV_KEY, Beta_URL) ScreenGui:Destroy() Blur:Destroy() return
-        elseif env_preference == "OLD" or env_preference == "STABLE" then LaunchPunkX(SECRET_DEV_KEY, Main_URL) ScreenGui:Destroy() Blur:Destroy() return
-        elseif env_preference == "NEW" then LaunchPunkX(SECRET_DEV_KEY, New_URL) ScreenGui:Destroy() Blur:Destroy() return end
+        if env_preference == "BETA" then LaunchPunkX(SECRET_DEV_KEY, Beta_URL) ScreenGui:Destroy() return
+        elseif env_preference == "OLD" or env_preference == "STABLE" then LaunchPunkX(SECRET_DEV_KEY, Main_URL) ScreenGui:Destroy() return
+        elseif env_preference == "NEW" then LaunchPunkX(SECRET_DEV_KEY, New_URL) ScreenGui:Destroy() return end
         OpenLoader()
         KeyBox.Text = saved
         ShowLauncherMenu(true)
@@ -703,8 +699,8 @@ if saved then
         if success and valid then 
             CURRENT_KEY = saved
             SetExpiryData(data)
-            if env_preference == "OLD" or env_preference == "STABLE" then LaunchPunkX(saved, Main_URL) ScreenGui:Destroy() Blur:Destroy() return
-            elseif env_preference == "NEW" then LaunchPunkX(saved, New_URL) ScreenGui:Destroy() Blur:Destroy() return end
+            if env_preference == "OLD" or env_preference == "STABLE" then LaunchPunkX(saved, Main_URL) ScreenGui:Destroy() return
+            elseif env_preference == "NEW" then LaunchPunkX(saved, New_URL) ScreenGui:Destroy() return end
             OpenLoader()
             KeyBox.Text = saved
             ShowLauncherMenu(false)
@@ -715,10 +711,15 @@ end
 
 if not autoLogged then OpenLoader() end
 
--- // ANTI-AFK //
--- Using VirtualUser might also be risky for BAC, but keeping as requested
--- If you get kicked after loading, remove this block
-LocalPlayer.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
+-- // 🛡️ SAFE ANTI-AFK (Passive Mode) //
+-- Replaces "VirtualUser" to bypass BAC-7205
+task.spawn(function()
+    if getconnections then
+        for _, conn in pairs(getconnections(LocalPlayer.Idled)) do
+            conn:Disable()
+        end
+    else
+        -- Fallback: Just sit there (safest)
+        LocalPlayer.Idled:Connect(function() end)
+    end
 end)
