@@ -1,5 +1,5 @@
 -- // PUNK X OFFICIAL LOADER //
--- Version: 22.0 (Stable / VNG Fixed + Anti-Detection)
+-- Version: 22.0 (Stable / VNG Fixed + Anti-Detection + ULTRA SILENT)
 
 -- ⚠️ CRITICAL: Wait for game to fully load BEFORE starting loader
 repeat task.wait(0.5) until game:IsLoaded()
@@ -25,7 +25,7 @@ _G._debug_print = _original_print
 _G._debug_warn = _original_warn
 -- ==========================================
 
-print("[PUNK X] Game loaded, starting loader...")
+-- REMOVED: All print/warn statements for maximum stealth
 
 -- ==========================================
 -- 🛡️ FIX #2: CLONEREF SERVICES (AVOID WEAK TABLING)
@@ -126,11 +126,8 @@ end
 Notify("Punk X", "Initializing... Checking Resources")
 
 -- [[ ✅ ENSURE FOLDER EXISTS ]] --
-if not isfolder then
-    warn("[PUNK X] Executor doesn't support file system")
-elseif not isfolder("Punk-X-Files") then
+if isfolder and not isfolder("Punk-X-Files") then
     makefolder("Punk-X-Files")
-    print("[PUNK X] Created Punk-X-Files folder")
 end
 
 -- [[ 🟢 MIGRATE OLD ENV FILE ]]
@@ -141,14 +138,11 @@ if isfile and readfile and writefile and delfile then
             local env = readfile("punk-x-env.txt")
             writefile("Punk-X-Files/punk-x-env.txt", env)
             delfile("punk-x-env.txt")
-            print("[PUNK X] Migrated env to Punk-X-Files/")
         end)
     end
 end
 
 -- // 1. LOAD KEY LIBRARY WITH TIMEOUT (VNG FIX) //
-print("[PUNK X] Downloading Auth.lua...")
-
 local success, KeyLib = false, nil
 local authLoaded = false
 
@@ -170,12 +164,9 @@ while not authLoaded and waited < 15 do
 end
 
 if not success or not KeyLib then
-    print("[PUNK X] ❌ Auth.lua failed to load")
     Notify("Punk X Error", "Connection timeout. Please check your internet or try again.")
     return
 end
-
-print("[PUNK X] ✅ Auth.lua loaded successfully")
 
 -- // HELPER FUNCTIONS //
 
@@ -193,24 +184,18 @@ local function LaunchPunkX(passedKey, targetUrl)
     end
 
     task.spawn(function()
-        print("[PUNK X] Downloading main script...")
-        
         -- 🔴 Download with timeout (VNG Fix - Increased to 60 seconds)
         local content = nil
         local downloadDone = false
         
         task.spawn(function()
-            print("[PUNK X] Starting HTTP request...")
             local success_dl, result = pcall(function() 
                 return game:HttpGet(targetUrl) 
             end)
             if success_dl then
-                print("[PUNK X] HTTP request completed, size:", #result, "bytes")
                 task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
                 content = result
                 task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
-            else
-                print("[PUNK X] HTTP request failed:", result)
             end
             downloadDone = true
         end)
@@ -220,9 +205,6 @@ local function LaunchPunkX(passedKey, targetUrl)
         while not downloadDone and waited < 60 do
             task.wait(0.5)
             waited = waited + 0.5
-            if waited % 5 == 0 then
-                print("[PUNK X] Still downloading... (" .. waited .. "s elapsed)")
-            end
         end
         
         task.wait(0.1) -- [ADJUSTED] Critical yield reduced from 0.2
@@ -230,47 +212,31 @@ local function LaunchPunkX(passedKey, targetUrl)
         if not content then
             PlaySound(SOUNDS.Error)
             Notify("Punk X Error", "Download timeout (" .. waited .. "s). GitHub is very slow in Vietnam. Please try again.")
-            print("[PUNK X] ❌ Main script download failed after", waited, "seconds")
             return
         end
         
-        print("[PUNK X] ✅ Main script downloaded successfully")
         task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
-        
-        print("[PUNK X] Content size:", #content, "bytes")
         task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
-        
-        print("[PUNK X] Creating loadstring...")
         task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
 
         local func, syntax_error = loadstring(content)
         
         task.wait(0.05) -- [ADJUSTED] Reduced from 0.1
-        print("[PUNK X] Loadstring created, checking for errors...")
         
         if not func then
             PlaySound(SOUNDS.Error)
             Notify("Punk X", "Update Corrupted (Syntax Error)")
-            warn("🚨 PUNK X CLOUD ERROR: " .. tostring(syntax_error))
-            print("[PUNK X] ❌ Syntax error in downloaded script")
             return
         end
         
         task.wait(0.1) -- [ADJUSTED] Critical yield reduced from 0.2
-        print("[PUNK X] ✅ Loadstring successful, executing script...")
         
         -- Total waits sum up to roughly 0.5s now
 
         local run_success, run_err = pcall(func)
         
-        print("[PUNK X] Script execution completed")
-        
         if not run_success then
-            warn("[PUNK X EXCEPTION]:", run_err)
             Notify("Punk X", "Launch Failed (Internal Error)")
-            print("[PUNK X] ❌ Script execution error:", run_err)
-        else
-            print("[PUNK X] ✅ Script launched successfully")
         end
     end)
 end
@@ -312,8 +278,6 @@ local function SetExpiryData(data)
 end
 
 local function SaveEnvironmentPreference(envType)
-    print("[DEBUG] Saving ENV to:", ENV_FILE_NAME)
-    print("[DEBUG] ENV Content:", envType)
     if writefile then
         pcall(function()
             writefile(ENV_FILE_NAME, envType)
@@ -679,8 +643,6 @@ DiscordBtn.MouseButton1Click:Connect(function()
     if setclipboard then
         setclipboard(UI_CONFIG.DiscordLink)
         Notify("Punk X", "Discord Invite Copied!", 3)
-    else
-        print("Discord:", UI_CONFIG.DiscordLink)
     end
 end)
 
@@ -690,8 +652,6 @@ GetKeyBtn.MouseButton1Click:Connect(function()
         setclipboard(KeyLib.GetKeyURL())
         GetKeyBtn.Text = "Copied!"
         Notify("Punk X", "Key Link Copied!", 3)
-    else
-        print("Key URL:", KeyLib.GetKeyURL())
     end
     task.wait(1.5)
     GetKeyBtn.Text = "Get Key"
@@ -742,8 +702,6 @@ RedeemBtn.MouseButton1Click:Connect(function()
         StatusText.TextColor3 = Color3.fromRGB(0, 200, 255)
         
         -- Manual save for Dev Key
-        print("[DEBUG] Saving DEV KEY to:", KEY_FILE_NAME)
-        print("[DEBUG] DEV KEY Content:", key)
         if writefile then pcall(function() writefile(KEY_FILE_NAME, key) end) end
         
         CURRENT_KEY = key
@@ -759,8 +717,6 @@ RedeemBtn.MouseButton1Click:Connect(function()
         PlaySound(SOUNDS.Success)
         
         -- Save Key for next time
-        print("[DEBUG] Saving USER KEY to:", KEY_FILE_NAME)
-        print("[DEBUG] USER KEY Content:", key)
         if writefile then pcall(function() writefile(KEY_FILE_NAME, key) end) end
 
         SetExpiryData(data)
