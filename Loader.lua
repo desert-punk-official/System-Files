@@ -8,19 +8,19 @@ task.wait(1.5) -- Extended wait for AC stabilization
 -- ==========================================
 -- 🛡️ FIX #1: SILENT CONSOLE
 -- ==========================================
-local _original_print = print
-local _original_warn = warn
-print = function(...) end
-warn = function(...) end
+--local _original_print = print
+--local _original_warn = warn
+--print = function(...) end
+--warn = function(...) end
 
-if getgenv then
-    getgenv()._debug_print = _original_print
-    getgenv()._debug_warn = _original_warn
-end
+--if getgenv then
+   -- getgenv()._debug_print = _original_print
+  --  getgenv()._debug_warn = _original_warn
+--end
 
 -- ✅ ADD THESE 2 LINES: Store for console to use
-_G._original_print = _original_print
-_G._original_warn = _original_warn
+--_G._original_print = _original_print
+--_G._original_warn = _original_warn
 -- ==========================================
 
 -- ==========================================
