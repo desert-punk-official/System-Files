@@ -513,6 +513,7 @@ local function TweenObj(obj, props, time)
 end
 
 local function OpenLoader()
+    print("[PunkX] loader: OpenLoader ran")
     Notify("Punk X", "Welcome Back!")
     MainFrame.Visible = true
     -- REMOVED BLUR TWEEN
