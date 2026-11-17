@@ -189,8 +189,17 @@ while not authLoaded and waited < 15 do
 end
 
 if not success or not KeyLib then
-    return -- Fail silently or check console
+    warn("[PUNK X] Auth library failed to load; the key window cannot start. "
+        .. "See the HttpGet / loadstring error above.")
+    return
 end
+
+-- Hand the loaded library to the UI.  Without this the UI downloaded and
+-- loaded a second copy of Auth.lua on the game thread, and when that copy
+-- came back empty the UI destroyed its own ScreenGui ("Auth Lib Failed."
+-- and a window that appears for a frame and vanishes).
+if getgenv then getgenv().PUNK_X_AUTH = KeyLib end
+_G.PUNK_X_AUTH = KeyLib
 
 -- // HELPER FUNCTIONS //
 
@@ -221,6 +230,7 @@ local function LaunchPunkX(passedKey, targetUrl)
         end
         
         if not content then
+            warn("[PUNK X] UI download failed for " .. tostring(targetUrl))
             PlaySound(SOUNDS.Error)
             Notify("Punk X Error", "Download failed.")
             return
@@ -228,12 +238,14 @@ local function LaunchPunkX(passedKey, targetUrl)
         
         local func, syntax_error = loadstring(content)
         if not func then
+            warn("[PUNK X] UI syntax error: " .. tostring(syntax_error))
             Notify("Punk X", "Syntax Error in Script")
             return
         end
         
         local run_success, run_err = pcall(func)
         if not run_success then
+            warn("[PUNK X] UI execution failed: " .. tostring(run_err))
             Notify("Punk X", "Execution Failed")
         end
     end)
@@ -271,6 +283,12 @@ end
 
 -- Cleanup old
 local parent = GetSecureParent()
+-- Milestone: if the key window never appears, this line says where it was
+-- meant to go.  A GUI parented to a container that does not render is the
+-- failure mode that produces no error anywhere (build d249221 parented to
+-- CoreGui and drew nothing).
+print("[PunkX] loader: key window parent = "
+    .. tostring(parent and parent:GetFullName()))
 for _, v in pairs(parent:GetChildren()) do
     -- Remove any GUI that looks like ours
     if v.Name:match("Px_") or v.Name == "PunkX_ModernUI" then
@@ -281,6 +299,8 @@ end
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = GUI_RANDOM_NAME -- Randomized Name
 ScreenGui.Parent = parent
+print("[PunkX] loader: key window attached under "
+    .. tostring(ScreenGui.Parent and ScreenGui.Parent:GetFullName()))
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.ResetOnSpawn = false
 -- Removed DisplayOrder modification (Standard 0 is safer)
