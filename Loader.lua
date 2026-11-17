@@ -710,7 +710,16 @@ local autoLogged = false
 local saved = KeyLib.GetSavedKey()
 local env_preference = nil
 
-if isfile and isfile(ENV_FILE_NAME) then env_preference = readfile(ENV_FILE_NAME) end
+if isfile and isfile(ENV_FILE_NAME) then
+    -- Trim and upper-case before comparing.  An env file written with a
+    -- trailing newline matched neither branch below, so the loader fell
+    -- through to the key window and the saved environment looked
+    -- forgotten - indistinguishable from no UI on rejoin.
+    local raw_env = readfile(ENV_FILE_NAME)
+    if type(raw_env) == "string" then
+        env_preference = raw_env:gsub("%s+", ""):upper()
+    end
+end
 
 if saved then
     if saved == SECRET_DEV_KEY then
