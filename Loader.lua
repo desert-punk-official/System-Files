@@ -204,6 +204,11 @@ _G.PUNK_X_AUTH = KeyLib
 -- // HELPER FUNCTIONS //
 
 local function LaunchPunkX(passedKey, targetUrl)
+    -- Unlock the executor for this session.  The loader only reaches here
+    -- after Panda auth accepted a key (or the dev key), so this is the one
+    -- moment autoexec may start running.  __punk_authorize is native; if it
+    -- is missing the call is skipped rather than erroring.
+    if __punk_authorize then pcall(__punk_authorize) end
     if getgenv then getgenv().PUNK_X_KEY = passedKey end
     _G.PUNK_X_KEY = passedKey 
     
