@@ -721,6 +721,12 @@ if isfile and isfile(ENV_FILE_NAME) then
     end
 end
 
+-- Which auto-login branch is about to run.  A saved key is invisible
+-- otherwise: the key window is built, then destroyed by the branch
+-- below, which looks identical to "the window never appeared".
+print("[PunkX] auto-login: saved=" .. (saved and "yes" or "no")
+    .. " env=" .. tostring(env_preference))
+
 if saved then
     if saved == SECRET_DEV_KEY then
         CURRENT_KEY = saved
