@@ -511,7 +511,11 @@ local function OpenLoader()
     Notify("Punk X", "Welcome Back!")
     MainFrame.Visible = true
     -- REMOVED BLUR TWEEN
-    TweenObj(MainFrame, {Size = UDim2.new(0.5, 0, 0.45, 0)}, 0.4) 
+    -- Apply the size first: on device the tween alone left the window at
+    -- UDim2.new(0,0,0,0) for the whole session (probe: ScreenGui 335x834,
+    -- MainFrame absSize 0,0), i.e. an enabled, visible, 0x0 window.
+    MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0)
+    pcall(function() TweenObj(MainFrame, {Size = UDim2.new(0.5, 0, 0.45, 0)}, 0.4) end) 
     TweenObj(Stroke, {Transparency = 0.5}, 0.8) 
 end
 
