@@ -5,6 +5,29 @@
 repeat task.wait(0.5) until game:IsLoaded()
 task.wait(1.5) -- Extended wait for AC stabilization
 
+-- Roblox starts the Android activity in portrait and rotates once the
+-- game surface is live.  A ScreenGui built during that window keeps the
+-- portrait layout - the cold-start probe reported gui=335x834 while the
+-- same place after a rejoin reported 754x375 - and the window is never
+-- drawn.  Wait for a landscape camera viewport first; the cap keeps a
+-- client that never reports landscape from losing the window entirely.
+do
+    local live_workspace = game:GetService("Workspace")
+
+    local function viewport_is_landscape()
+        local ok, size = pcall(function()
+            local camera = live_workspace.CurrentCamera
+            return camera and camera.ViewportSize
+        end)
+        return ok and size ~= nil and size.X > size.Y
+    end
+
+    for _ = 1, 80 do
+        if viewport_is_landscape() then break end
+        task.wait(0.25)
+    end
+end
+
 -- ==========================================
 -- 🛡️ FIX #1: SILENT CONSOLE
 -- ==========================================
@@ -295,8 +318,14 @@ local parent = GetSecureParent()
 print("[PunkX] loader: key window parent = "
     .. tostring(parent and parent:GetFullName()))
 for _, v in pairs(parent:GetChildren()) do
-    -- Remove any GUI that looks like ours
-    if v.Name:match("Px_") or v.Name == "PunkX_ModernUI" then
+    -- Name matching alone missed the executor UI: its ScreenGui is named
+    -- with a random hex string, so after a rejoin or a place change the
+    -- previous UI stayed on screen and the next one stacked on top.  The
+    -- attribute travels with the instance, so it survives the VM rebuild
+    -- that clears getgenv().
+    local owned = false
+    pcall(function() owned = v:GetAttribute("PunkX") ~= nil end)
+    if owned or v.Name:match("Px_") or v.Name == "PunkX_ModernUI" then
         v:Destroy()
     end
 end
@@ -319,6 +348,9 @@ ScreenGui.DisplayOrder = 999999
 ScreenGui.Parent = parent
 print("[PunkX] loader: key window attached under "
     .. tostring(ScreenGui.Parent and ScreenGui.Parent:GetFullName()))
+-- Ownership marker the next session can see even though getgenv() is
+-- rebuilt with the VM.
+pcall(function() ScreenGui:SetAttribute("PunkX", "loader") end)
 
 -- ⚠️ REMOVED BLUR EFFECT (BAC-7205/82010 Fix) ⚠️
 -- Do not add Instance.new("BlurEffect") anywhere
@@ -773,20 +805,68 @@ if not autoLogged then OpenLoader() end
 -- One-shot state report.  If the window is ever invisible again this
 -- line names the reason instead of leaving it to guesswork: a nil parent
 -- means the container dropped it, enabled=false means the key-failure
--- guard fired, size=0x0 means the geometry was cleared, and a healthy
--- report means the frame exists but is drawn elsewhere (z-order).
+-- guard fired, size=0x0 means the geometry was cleared, gui/view tells
+-- whether the GUI viewport matches the renderer, and a healthy report
+-- means the frame exists but is drawn elsewhere (z-order).
 task.delay(1, function()
     local ok, state = pcall(function()
+        -- A ScreenGui created while the activity was still portrait keeps
+        -- that viewport and is never drawn.  If the GUI is portrait while
+        -- the camera is landscape, move the frame into a fresh ScreenGui:
+        -- a new container binds to the live viewport.  ScreenGui is an
+        -- upvalue, so every closure below sees the replacement.
+        local gui_ok, gui_portrait = pcall(function()
+            return ScreenGui.AbsoluteSize.X < ScreenGui.AbsoluteSize.Y
+        end)
+
+        local live_landscape = false
+        pcall(function()
+            local ws = game:GetService("Workspace")
+            local cam = ws and ws.CurrentCamera
+            live_landscape = cam ~= nil
+                and cam.ViewportSize.X > cam.ViewportSize.Y
+        end)
+
+        if gui_ok and gui_portrait and live_landscape then
+            local fresh = Instance.new("ScreenGui")
+            fresh.Name = GUI_RANDOM_NAME
+            fresh.ResetOnSpawn = false
+            fresh.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+            fresh.IgnoreGuiInset = true
+            fresh.Enabled = true
+            fresh.DisplayOrder = 999999
+            fresh.Parent = parent
+
+            MainFrame.Parent = fresh
+            ScreenGui:Destroy()
+            ScreenGui = fresh
+            MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0)
+            MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+            MainFrame.Visible = true
+            print("[PunkX] loader: window rebound to a fresh ScreenGui "
+                .. "(the old container kept a stale viewport)")
+        end
+
         if MainFrame.AbsoluteSize.X == 0 or MainFrame.AbsoluteSize.Y == 0 then
             MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0)
             MainFrame.Visible = true
             ScreenGui.Enabled = true
         end
 
+        local view_x, view_y = -1, -1
+        pcall(function()
+            local ws = game:GetService("Workspace")
+            local cam = ws and ws.CurrentCamera
+            if cam then
+                view_x, view_y = cam.ViewportSize.X, cam.ViewportSize.Y
+            end
+        end)
+
         return "parent=" .. tostring(ScreenGui.Parent and ScreenGui.Parent:GetFullName())
             .. " enabled=" .. tostring(ScreenGui.Enabled)
             .. " display=" .. tostring(ScreenGui.DisplayOrder)
             .. " gui=" .. tostring(ScreenGui.AbsoluteSize.X) .. "x" .. tostring(ScreenGui.AbsoluteSize.Y)
+            .. " view=" .. tostring(view_x) .. "x" .. tostring(view_y)
             .. " frame=" .. tostring(MainFrame.AbsoluteSize.X) .. "x" .. tostring(MainFrame.AbsoluteSize.Y)
             .. " at=" .. tostring(MainFrame.AbsolutePosition.X) .. "," .. tostring(MainFrame.AbsolutePosition.Y)
             .. " visible=" .. tostring(MainFrame.Visible)
