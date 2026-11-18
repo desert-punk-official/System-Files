@@ -303,13 +303,22 @@ end
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = GUI_RANDOM_NAME -- Randomized Name
+-- Properties first, parent last.  Roblox's respawn reset only spares a
+-- ScreenGui whose ResetOnSpawn is already false when it enters PlayerGui,
+-- and a window created a few milliseconds before the character spawns is
+-- otherwise cleared without a trace (the "no UI at all" report).
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.Enabled = true
+-- Above the game's own ScreenGuis: a full-screen loading/menu GUI at a
+-- higher DisplayOrder would otherwise draw on top of the window, which
+-- looks identical to the window not existing.  DisplayOrder only orders
+-- PlayerGui layers; the CoreGui topbar is a separate layer.
+ScreenGui.DisplayOrder = 999999
 ScreenGui.Parent = parent
 print("[PunkX] loader: key window attached under "
     .. tostring(ScreenGui.Parent and ScreenGui.Parent:GetFullName()))
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.ResetOnSpawn = false
--- Removed DisplayOrder modification (Standard 0 is safer)
-ScreenGui.IgnoreGuiInset = true 
 
 -- ⚠️ REMOVED BLUR EFFECT (BAC-7205/82010 Fix) ⚠️
 -- Do not add Instance.new("BlurEffect") anywhere
@@ -513,6 +522,7 @@ local function TweenObj(obj, props, time)
 end
 
 local function OpenLoader()
+    ScreenGui.Enabled = true
     print("[PunkX] loader: OpenLoader ran")
     Notify("Punk X", "Welcome Back!")
     MainFrame.Visible = true
@@ -759,6 +769,32 @@ if saved then
 end
 
 if not autoLogged then OpenLoader() end
+
+-- One-shot state report.  If the window is ever invisible again this
+-- line names the reason instead of leaving it to guesswork: a nil parent
+-- means the container dropped it, enabled=false means the key-failure
+-- guard fired, size=0x0 means the geometry was cleared, and a healthy
+-- report means the frame exists but is drawn elsewhere (z-order).
+task.delay(1, function()
+    local ok, state = pcall(function()
+        if MainFrame.AbsoluteSize.X == 0 or MainFrame.AbsoluteSize.Y == 0 then
+            MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0)
+            MainFrame.Visible = true
+            ScreenGui.Enabled = true
+        end
+
+        return "parent=" .. tostring(ScreenGui.Parent and ScreenGui.Parent:GetFullName())
+            .. " enabled=" .. tostring(ScreenGui.Enabled)
+            .. " display=" .. tostring(ScreenGui.DisplayOrder)
+            .. " gui=" .. tostring(ScreenGui.AbsoluteSize.X) .. "x" .. tostring(ScreenGui.AbsoluteSize.Y)
+            .. " frame=" .. tostring(MainFrame.AbsoluteSize.X) .. "x" .. tostring(MainFrame.AbsoluteSize.Y)
+            .. " at=" .. tostring(MainFrame.AbsolutePosition.X) .. "," .. tostring(MainFrame.AbsolutePosition.Y)
+            .. " visible=" .. tostring(MainFrame.Visible)
+    end)
+
+    print("[PunkX] loader: window state "
+        .. (ok and state or ("probe failed: " .. tostring(state))))
+end)
 
 -- // 🛡️ SAFE ANTI-AFK (Passive Mode) //
 -- Replaces "VirtualUser" to bypass BAC-7205
