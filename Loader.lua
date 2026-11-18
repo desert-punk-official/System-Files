@@ -1,5 +1,8 @@
 -- // PUNK X OFFICIAL LOADER //
 -- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
+-- Deployment stamp.  Every deployed file prints this tag, so one log
+-- line answers "is the file I uploaded the file that ran?".
+print("[PunkX] release 2026-11-18a loader")
 
 -- ⚠️ CRITICAL: Wait for game to fully load
 repeat task.wait(0.5) until game:IsLoaded()
@@ -801,6 +804,53 @@ if saved then
 end
 
 if not autoLogged then OpenLoader() end
+
+-- A cold start can rotate long after the window is built: on device the
+-- camera reported a 375x747 portrait viewport and nativeResize fired
+-- 80 s later.  Keep checking, and move the frame into a fresh ScreenGui
+-- the moment the renderer is landscape while the GUI is still portrait.
+-- Capped so a client that never rotates cannot leak containers.
+task.spawn(function()
+    local rebinds = 0
+
+    while ScreenGui.Parent ~= nil and rebinds < 5 do
+        task.wait(0.75)
+
+        local gui_ok, gui_portrait = pcall(function()
+            return ScreenGui.AbsoluteSize.X < ScreenGui.AbsoluteSize.Y
+        end)
+
+        local live_landscape = false
+        pcall(function()
+            local ws = game:GetService("Workspace")
+            local cam = ws and ws.CurrentCamera
+            live_landscape = cam ~= nil
+                and cam.ViewportSize.X > cam.ViewportSize.Y
+        end)
+
+        if gui_ok and gui_portrait and live_landscape then
+            local fresh = Instance.new("ScreenGui")
+            fresh.Name = GUI_RANDOM_NAME
+            fresh.ResetOnSpawn = false
+            fresh.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+            fresh.IgnoreGuiInset = true
+            fresh.Enabled = true
+            fresh.DisplayOrder = 999999
+            fresh.Parent = parent
+
+            MainFrame.Parent = fresh
+            ScreenGui:Destroy()
+            ScreenGui = fresh
+            MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0)
+            MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+            MainFrame.Visible = true
+
+            rebinds = rebinds + 1
+            print("[PunkX] loader: window rebound to a fresh ScreenGui "
+                .. "(the surface rotated after the window was built)")
+        end
+    end
+end)
 
 -- One-shot state report.  If the window is ever invisible again this
 -- line names the reason instead of leaving it to guesswork: a nil parent
