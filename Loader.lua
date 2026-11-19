@@ -2,7 +2,7 @@
 -- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
 -- Deployment stamp.  Every deployed file prints this tag, so one log
 -- line answers "is the file I uploaded the file that ran?".
-print("[PunkX] release 2026-11-19j loader")
+print("[PunkX] release 2026-11-19k loader")
 
 -- ⚠️ CRITICAL: Wait for game to fully load
 -- No pre-build wait.  on_game_loaded already means the game is loaded,
@@ -965,10 +965,24 @@ function _punkApplyLayout()
 
         if width_off or surplus > vy * 0.10 then
             if resync_viewport then
-                local ok, requested = pcall(resync_viewport)
-                print("[PunkX] loader: surface resync "
-                    .. ((ok and requested) and "requested" or "unavailable"))
+                local ok, status = pcall(resync_viewport)
+                print("[PunkX] loader: surface resync status="
+                    .. tostring(ok and status or "call failed"))
             end
+        end
+
+        -- Portrait is the state in which nothing is ever drawn: every
+        -- failing session logged orient=Portrait, the working one logged
+        -- Landscape.  Rotating the device by hand fixes it, so ask the
+        -- activity for landscape once; the engine then re-lays out from
+        -- the live surface exactly as it does on a manual rotation.
+        local orient = _punkOrientationText()
+
+        if orient:find("Portrait") and force_landscape then
+            local ok, status = pcall(force_landscape)
+            print("[PunkX] loader: landscape request status="
+                .. tostring(ok and status or "call failed")
+                .. " (was " .. orient .. ")")
         end
     end
 
