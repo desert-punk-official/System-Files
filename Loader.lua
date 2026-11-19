@@ -805,16 +805,20 @@ end
 
 if not autoLogged then OpenLoader() end
 
--- A cold start can rotate long after the window is built: on device the
--- camera reported a 375x747 portrait viewport and nativeResize fired
--- 80 s later.  Keep checking, and move the frame into a fresh ScreenGui
--- the moment the renderer is landscape while the GUI is still portrait.
--- Capped so a client that never rotates cannot leak containers.
+-- Rotations can arrive very late (device: nativeResize fired 80 s after the
+-- window was built), so watch for the whole session instead of for a few
+-- seconds.  Rebind only when the container's layout disagrees with the
+-- renderer, at most once every five seconds, so a client that never
+-- settles cannot thrash or leak containers.
 task.spawn(function()
-    local rebinds = 0
+    local last_rebind = 0
 
-    while ScreenGui.Parent ~= nil and rebinds < 5 do
-        task.wait(0.75)
+    while true do
+        task.wait(1)
+
+        -- CloseLoader() destroys the container when the UI takes over, so
+        -- this is a normal end of life, not an error.
+        if ScreenGui.Parent == nil then break end
 
         local gui_ok, mismatch = pcall(function()
             local g = ScreenGui.AbsoluteSize
@@ -825,7 +829,7 @@ task.spawn(function()
             return math.abs(g.X - v.X) > 8 or math.abs(g.Y - v.Y) > 8
         end)
 
-        if gui_ok and mismatch then
+        if gui_ok and mismatch and (os.clock() - last_rebind) >= 5 then
             local fresh = Instance.new("ScreenGui")
             fresh.Name = GUI_RANDOM_NAME
             fresh.ResetOnSpawn = false
@@ -842,11 +846,33 @@ task.spawn(function()
             MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
             MainFrame.Visible = true
 
-            rebinds = rebinds + 1
-            print("[PunkX] loader: window rebound to a fresh ScreenGui "
-                .. "(the surface rotated after the window was built)")
+            last_rebind = os.clock()
+            print("[PunkX] loader: window rebound to a fresh ScreenGui (layout "
+                .. "disagreed with the renderer)")
         end
     end
+end)
+
+-- One late report, fifteen seconds in: if the window is ever still not
+-- visible after the game has settled, this line carries the whole state
+-- instead of leaving it to another round of guessing.
+task.delay(15, function()
+    local ok, state = pcall(function()
+        local g = ScreenGui.AbsoluteSize
+        local vx, vy = -1, -1
+        pcall(function()
+            local ws = game:GetService("Workspace")
+            local cam = ws and ws.CurrentCamera
+            if cam then vx, vy = cam.ViewportSize.X, cam.ViewportSize.Y end
+        end)
+        return "parent=" .. tostring(ScreenGui.Parent and ScreenGui.Parent:GetFullName())
+            .. " enabled=" .. tostring(ScreenGui.Enabled)
+            .. " gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
+            .. " view=" .. tostring(vx) .. "x" .. tostring(vy)
+            .. " visible=" .. tostring(MainFrame.Visible)
+    end)
+    print("[PunkX] loader: window state (15s) "
+        .. (ok and state or ("probe failed: " .. tostring(state))))
 end)
 
 -- One-shot state report.  If the window is ever invisible again this
