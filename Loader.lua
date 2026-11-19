@@ -2,7 +2,7 @@
 -- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
 -- Deployment stamp.  Every deployed file prints this tag, so one log
 -- line answers "is the file I uploaded the file that ran?".
-print("[PunkX] release 2026-11-19a loader")
+print("[PunkX] release 2026-11-19c loader")
 
 -- ⚠️ CRITICAL: Wait for game to fully load
 repeat task.wait(0.5) until game:IsLoaded()
@@ -805,13 +805,53 @@ end
 
 if not autoLogged then OpenLoader() end
 
--- Rotations can arrive very late (device: nativeResize fired 80 s after the
--- window was built), so watch for the whole session instead of for a few
--- seconds.  Rebind only when the container's layout disagrees with the
--- renderer, at most once every five seconds, so a client that never
--- settles cannot thrash or leak containers.
+-- Geometry watchdog.  It never rebuilds the container (device: three fresh
+-- ScreenGuis in a row reported the same stale AbsoluteSize, and each
+-- rebuild destroys whatever the user is typing into).  It only re-places
+-- the frame.
+--
+-- When the GUI viewport and the camera disagree, the GUI space cannot be
+-- trusted, so the window is anchored top-left at a size that fits inside
+-- the smaller of the two rectangles.  That is visible whichever one is
+-- the real one.  When they agree, the normal centred layout is restored.
+function _punkApplyLayout()
+    local g = ScreenGui.AbsoluteSize
+    local vx, vy = nil, nil
+
+    pcall(function()
+        local ws = game:GetService("Workspace")
+        local cam = ws and ws.CurrentCamera
+        if cam then vx, vy = cam.ViewportSize.X, cam.ViewportSize.Y end
+    end)
+
+    if vx == nil then
+        return "scale", "no-camera"
+    end
+
+    local consistent = math.abs(g.X - vx) <= 8 and math.abs(g.Y - vy) <= 8
+
+    if consistent then
+        MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+        MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0)
+        MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+        return "scale", "gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
+    end
+
+    local width = math.max(220, math.min(g.X, vx) - 24)
+    local height = math.max(140, math.min(g.Y, vy) * 0.45)
+
+    MainFrame.AnchorPoint = Vector2.new(0, 0)
+    MainFrame.Size = UDim2.new(0, width, 0, height)
+    MainFrame.Position = UDim2.new(0, 12, 0, 12)
+
+    return "safe", "gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
+        .. " view=" .. tostring(vx) .. "x" .. tostring(vy)
+end
+
+-- Re-place on every transition, once per second.  Applying it only when
+-- the mode changes keeps it off the frame's back during normal play.
 task.spawn(function()
-    local last_rebind = 0
+    local mode = nil
 
     while true do
         task.wait(1)
@@ -820,35 +860,12 @@ task.spawn(function()
         -- this is a normal end of life, not an error.
         if ScreenGui.Parent == nil then break end
 
-        local gui_ok, mismatch = pcall(function()
-            local g = ScreenGui.AbsoluteSize
-            local ws = game:GetService("Workspace")
-            local cam = ws and ws.CurrentCamera
-            if not cam then return false end
-            local v = cam.ViewportSize
-            return math.abs(g.X - v.X) > 8 or math.abs(g.Y - v.Y) > 8
-        end)
+        local new_mode, detail = _punkApplyLayout()
 
-        if gui_ok and mismatch and (os.clock() - last_rebind) >= 5 then
-            local fresh = Instance.new("ScreenGui")
-            fresh.Name = GUI_RANDOM_NAME
-            fresh.ResetOnSpawn = false
-            fresh.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-            fresh.IgnoreGuiInset = true
-            fresh.Enabled = true
-            fresh.DisplayOrder = 999999
-            fresh.Parent = parent
-
-            MainFrame.Parent = fresh
-            ScreenGui:Destroy()
-            ScreenGui = fresh
-            MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0)
-            MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-            MainFrame.Visible = true
-
-            last_rebind = os.clock()
-            print("[PunkX] loader: window rebound to a fresh ScreenGui (layout "
-                .. "disagreed with the renderer)")
+        if new_mode and new_mode ~= mode then
+            mode = new_mode
+            print("[PunkX] loader: layout mode " .. tostring(new_mode)
+                .. " (" .. tostring(detail) .. ")")
         end
     end
 end)
@@ -857,6 +874,7 @@ end)
 -- visible after the game has settled, this line carries the whole state
 -- instead of leaving it to another round of guessing.
 task.delay(15, function()
+    if _punkApplyLayout then _punkApplyLayout() end
     local ok, state = pcall(function()
         local g = ScreenGui.AbsoluteSize
         local vx, vy = -1, -1
@@ -883,39 +901,10 @@ end)
 -- means the frame exists but is drawn elsewhere (z-order).
 task.delay(1, function()
     local ok, state = pcall(function()
-        -- A ScreenGui created while the activity was still portrait keeps
-        -- that viewport and is never drawn.  If the GUI is portrait while
-        -- the camera is landscape, move the frame into a fresh ScreenGui:
-        -- a new container binds to the live viewport.  ScreenGui is an
-        -- upvalue, so every closure below sees the replacement.
-        local gui_ok, mismatch = pcall(function()
-            local g = ScreenGui.AbsoluteSize
-            local ws = game:GetService("Workspace")
-            local cam = ws and ws.CurrentCamera
-            if not cam then return false end
-            local v = cam.ViewportSize
-            return math.abs(g.X - v.X) > 8 or math.abs(g.Y - v.Y) > 8
-        end)
-
-        if gui_ok and mismatch then
-            local fresh = Instance.new("ScreenGui")
-            fresh.Name = GUI_RANDOM_NAME
-            fresh.ResetOnSpawn = false
-            fresh.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-            fresh.IgnoreGuiInset = true
-            fresh.Enabled = true
-            fresh.DisplayOrder = 999999
-            fresh.Parent = parent
-
-            MainFrame.Parent = fresh
-            ScreenGui:Destroy()
-            ScreenGui = fresh
-            MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0)
-            MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-            MainFrame.Visible = true
-            print("[PunkX] loader: window rebound to a fresh ScreenGui "
-                .. "(the old container kept a stale viewport)")
-        end
+        -- Rebuilding the container does not help: on device three fresh
+        -- ScreenGuis in a row all reported the same stale AbsoluteSize while
+        -- the camera reported a different viewport, so the mismatch lives in
+        -- the client's GUI viewport.  The watcher below only reports it.
 
         if MainFrame.AbsoluteSize.X == 0 or MainFrame.AbsoluteSize.Y == 0 then
             MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0)
