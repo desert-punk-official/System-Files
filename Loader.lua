@@ -2,32 +2,16 @@
 -- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
 -- Deployment stamp.  Every deployed file prints this tag, so one log
 -- line answers "is the file I uploaded the file that ran?".
-print("[PunkX] release 2026-11-19i loader")
+print("[PunkX] release 2026-11-19j loader")
 
 -- ⚠️ CRITICAL: Wait for game to fully load
-repeat task.wait(0.5) until game:IsLoaded()
-task.wait(1.5) -- Extended wait for AC stabilization
-
--- Roblox starts the Android activity in portrait and rotates once the
--- game surface is live.  The window now adapts its own geometry
--- (_punkApplyLayout below), so waiting longer only delays the UI; give the
--- surface a brief moment to settle and then build regardless.
-do
-    local live_workspace = game:GetService("Workspace")
-
-    local function viewport_is_landscape()
-        local ok, size = pcall(function()
-            local camera = live_workspace.CurrentCamera
-            return camera and camera.ViewportSize
-        end)
-        return ok and size ~= nil and size.X > size.Y
-    end
-
-    for _ = 1, 8 do
-        if viewport_is_landscape() then break end
-        task.wait(0.25)
-    end
-end
+-- No pre-build wait.  on_game_loaded already means the game is loaded,
+-- and every task.wait here costs a full scheduler round-trip: on this
+-- build a resumed continuation can take seconds, so the old 8 x 0.25 s
+-- landscape poll turned into 15-35 seconds with no window on screen
+-- (device 2026-11-20: 33 s between `release ... loader` and the Auth
+-- fetch in the portrait game, 15 s in Blox Fruits).  The window adapts
+-- its own geometry, so build it immediately.
 
 -- ==========================================
 -- 🛡️ FIX #1: SILENT CONSOLE
