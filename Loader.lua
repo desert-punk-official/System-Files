@@ -2,18 +2,16 @@
 -- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
 -- Deployment stamp.  Every deployed file prints this tag, so one log
 -- line answers "is the file I uploaded the file that ran?".
-print("[PunkX] release 2026-11-19c loader")
+print("[PunkX] release 2026-11-19d loader")
 
 -- ⚠️ CRITICAL: Wait for game to fully load
 repeat task.wait(0.5) until game:IsLoaded()
 task.wait(1.5) -- Extended wait for AC stabilization
 
 -- Roblox starts the Android activity in portrait and rotates once the
--- game surface is live.  A ScreenGui built during that window keeps the
--- portrait layout - the cold-start probe reported gui=335x834 while the
--- same place after a rejoin reported 754x375 - and the window is never
--- drawn.  Wait for a landscape camera viewport first; the cap keeps a
--- client that never reports landscape from losing the window entirely.
+-- game surface is live.  The window now adapts its own geometry
+-- (_punkApplyLayout below), so waiting longer only delays the UI; give the
+-- surface a brief moment to settle and then build regardless.
 do
     local live_workspace = game:GetService("Workspace")
 
@@ -25,7 +23,7 @@ do
         return ok and size ~= nil and size.X > size.Y
     end
 
-    for _ = 1, 240 do
+    for _ = 1, 8 do
         if viewport_is_landscape() then break end
         task.wait(0.25)
     end
@@ -829,6 +827,17 @@ function _punkApplyLayout()
     end
 
     local consistent = math.abs(g.X - vx) <= 8 and math.abs(g.Y - vy) <= 8
+
+    local mode = consistent and "scale" or "safe"
+
+    -- Apply only when the mode changes.  This function used to write the
+    -- geometry on every tick, which undid the user's drag a second after
+    -- they moved the window.
+    if _punkLayoutMode == mode then
+        return mode, "unchanged"
+    end
+
+    _punkLayoutMode = mode
 
     if consistent then
         MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
