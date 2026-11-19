@@ -2,7 +2,7 @@
 -- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
 -- Deployment stamp.  Every deployed file prints this tag, so one log
 -- line answers "is the file I uploaded the file that ran?".
-print("[PunkX] release 2026-11-19m loader")
+print("[PunkX] release 2026-11-19q loader")
 
 -- ⚠️ CRITICAL: Wait for game to fully load
 -- No pre-build wait.  on_game_loaded already means the game is loaded,
@@ -899,7 +899,46 @@ end
 -- is applied unless it beats the current rectangle, and the original
 -- is restored otherwise.
 local _punkInsetsTried = false
-local _punkFlipped = false
+local _punkFlips = 0
+local _punkFlipAt = 0
+local _punkApplied = nil
+
+-- Retried orientation flip.  A single flip is unreliable on this client:
+-- the window rotates (nativeResize 1220x2712 then 2712x1220) but the
+-- engine sometimes keeps the old GUI viewport, so one attempt per
+-- session looked like "works sometimes, not others".  Up to three
+-- attempts, three seconds apart, and only while the container still
+-- does not match the camera.
+function _punkWatchFlip()
+    if not force_landscape then return end
+    if _punkFlips >= 3 then return end
+
+    local g = ScreenGui.AbsoluteSize
+    if g.X < 1 or g.Y < 1 then return end
+
+    local cam = nil
+    pcall(function()
+        local ws = game:GetService("Workspace")
+        cam = ws and ws.CurrentCamera
+    end)
+
+    if not cam then return end
+
+    local vx, vy = cam.ViewportSize.X, cam.ViewportSize.Y
+
+    if math.abs(g.X - vx) <= 2 and math.abs(g.Y - vy) <= 2 then return end
+
+    local now = os.clock()
+
+    if now - _punkFlipAt < 3 then return end
+
+    _punkFlips = _punkFlips + 1
+    _punkFlipAt = now
+
+    local ok, status = pcall(force_landscape)
+    print("[PunkX] loader: orientation flip " .. tostring(_punkFlips)
+        .. " status=" .. tostring(ok and status or "call failed"))
+end
 
 function _punkMatchViewport(vx, vy)
     if _punkInsetsTried then return nil end
@@ -986,14 +1025,21 @@ function _punkApplyLayout()
 
     local mode = consistent and "scale" or "safe"
 
-    -- Apply only when the mode changes.  This function used to write the
-    -- geometry on every tick, which undid the user's drag a second after
-    -- they moved the window.
-    if _punkLayoutMode == mode then
+    -- Re-place when the mode OR the two rectangles changed.  Keying on the
+    -- mode alone missed the re-layout that follows the orientation flip:
+    -- the mode stayed "safe" while the container went from 375x834 to
+    -- 834x375, so the window kept the geometry measured mid-transition
+    -- (device: frame=351x168 at=180,28).
+    local same_rect = _punkApplied ~= nil
+        and _punkApplied[1] == g.X and _punkApplied[2] == g.Y
+        and _punkApplied[3] == vx and _punkApplied[4] == vy
+
+    if _punkLayoutMode == mode and same_rect then
         return mode, "unchanged"
     end
 
     _punkLayoutMode = mode
+    _punkApplied = { g.X, g.Y, vx, vy }
 
     if consistent then
         MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -1018,24 +1064,20 @@ function _punkApplyLayout()
     -- Tier 1 failed if the rectangle still is not the viewport: no
     -- ScreenInsets value can reach it on this client (device: the best
     -- candidate was 375.38x834.46 against a 375.38x747.46 viewport).  The
-    -- one thing that has ever reconciled them is a real configuration
-    -- change, which is what rotating the phone by hand does.  The native
-    -- side performs that flip on the UI thread, once, and only in this
-    -- state.
-    if not _punkFlipped and force_landscape
-        and (math.abs(g.X - vx) > 2 or math.abs(g.Y - vy) > 2) then
-        _punkFlipped = true
-        local ok, status = pcall(force_landscape)
-        print("[PunkX] loader: orientation flip status="
-            .. tostring(ok and status or "call failed"))
-    end
+    -- orientation flip belongs to the watchdog, not here: it has to be
+    -- retried, because the engine does not always pick the re-layout up.
 
     local width = math.max(220, math.min(g.X, vx) - 24)
     local height = math.max(140, math.min(g.Y, vy) * 0.45)
 
-    MainFrame.AnchorPoint = Vector2.new(0, 0)
+    -- Centred, not pinned to the corner.  After the orientation flip the
+    -- container can be larger than the render viewport (device: 834x375
+    -- against 754x375) and the layer still composites, so the window
+    -- belongs in the middle of the rectangle the player can actually see.
+    -- AnchorPoint keeps that true for any container size.
+    MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
     MainFrame.Size = UDim2.new(0, width, 0, height)
-    MainFrame.Position = UDim2.new(0, 12, 0, 12)
+    MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 
     return "safe", "gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
         .. " view=" .. tostring(vx) .. "x" .. tostring(vy)
@@ -1080,6 +1122,8 @@ game:GetService("RunService").Heartbeat:Connect(function()
         print("[PunkX] loader: window layer " .. tostring(top))
     end
 
+    _punkWatchFlip()
+
     local new_mode, detail = _punkApplyLayout()
 
     if new_mode and new_mode ~= _punkWatchMode then
@@ -1098,6 +1142,8 @@ do
     if top then
         print("[PunkX] loader: window layer " .. tostring(top))
     end
+
+    _punkWatchFlip()
 
     local mode, detail = _punkApplyLayout()
 
