@@ -2,7 +2,7 @@
 -- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
 -- Deployment stamp.  Every deployed file prints this tag, so one log
 -- line answers "is the file I uploaded the file that ran?".
-print("[PunkX] release 2026-11-19k loader")
+print("[PunkX] release 2026-11-19l loader")
 
 -- ⚠️ CRITICAL: Wait for game to fully load
 -- No pre-build wait.  on_game_loaded already means the game is loaded,
@@ -817,20 +817,20 @@ if not autoLogged then OpenLoader() end
 -- is laid out for a screen the renderer is not compositing, and nothing
 -- inside it is ever drawn.
 --
--- So the container rectangle is what differs, but it cannot be corrected
--- from Lua: writing ScreenInsets moved a working 375.38x794.46 container
--- to 375.38x834.46 and stopped the renderer drawing it (release f), and
--- no fixed threshold can tell those two apart on a phone, a tablet and
--- an emulator at once.  The normalisation belongs in the client, so this
--- script keeps the rectangle the client chose and places the window
--- inside it.
+-- So the container rectangle is the thing that decides it, and the user's
+-- logs give the rule without any device constant: every session that
+-- drew had gui == view, and every session that drew nothing had
+-- gui != view (794.46 against 747.46 - the topbar inset applied twice).
+-- _punkMatchViewport therefore tries every ScreenInsets value the build
+-- supports and keeps the one closest to the camera viewport, which is
+-- the target on any screen.  Writing ScreenInsets blindly (release f)
+-- moved a working 794.46 to 834.46, which is why the original value is
+-- restored whenever no candidate measures better.
 --
 -- _punkTopLayer covers the other failure class: a ScreenGui is only
 -- ordered against its siblings, so a game HUD at an equal or higher
 -- DisplayOrder draws over the window no matter where the frame is.  It
 -- raises the order only when something actually outranks us.
-
-local _punkResynced = false
 
 -- Make the container the top sibling in PlayerGui.  A ScreenGui is only
 -- ordered against its siblings, so this is the only thing that decides
@@ -893,6 +893,67 @@ function _punkOrientationText()
     return value
 end
 
+-- The window draws only when the container's rectangle is the camera's
+-- rectangle.  ScreenInsets decides it, so every value this build
+-- supports is tried and the one closest to the viewport kept; nothing
+-- is applied unless it beats the current rectangle, and the original
+-- is restored otherwise.
+local _punkInsetsTried = false
+
+function _punkMatchViewport(vx, vy)
+    if _punkInsetsTried then return nil end
+    _punkInsetsTried = true
+
+    local size = ScreenGui.AbsoluteSize
+    local best, best_name = nil, nil
+    local best_score = math.abs(size.X - vx) + math.abs(size.Y - vy)
+    local original = nil
+
+    pcall(function() original = ScreenGui.ScreenInsets end)
+
+    local function attempt(name, value)
+        if not pcall(function() ScreenGui.ScreenInsets = value end) then
+            return
+        end
+
+        local now = ScreenGui.AbsoluteSize
+        local score = math.abs(now.X - vx) + math.abs(now.Y - vy)
+
+        if score < best_score then
+            best, best_score, best_name = value, score, name
+        end
+    end
+
+    pcall(function()
+        attempt("DeviceSafeInsets", Enum.ScreenInsets.DeviceSafeInsets)
+    end)
+    pcall(function()
+        attempt("CoreUISafeInsets", Enum.ScreenInsets.CoreUISafeInsets)
+    end)
+    pcall(function()
+        attempt("TopbarSafeInsets", Enum.ScreenInsets.TopbarSafeInsets)
+    end)
+    pcall(function() attempt("None", Enum.ScreenInsets.None) end)
+
+    if best then
+        pcall(function() ScreenGui.ScreenInsets = best end)
+    elseif original ~= nil then
+        pcall(function() ScreenGui.ScreenInsets = original end)
+    end
+
+    local after = ScreenGui.AbsoluteSize
+
+    if after.X == size.X and after.Y == size.Y then
+        return nil
+    end
+
+    _punkLayoutMode = nil
+
+    return "insets " .. tostring(size.X) .. "x" .. tostring(size.Y)
+        .. " -> " .. tostring(after.X) .. "x" .. tostring(after.Y)
+        .. " (" .. tostring(best_name) .. ")"
+end
+
 function _punkApplyLayout()
     local g = ScreenGui.AbsoluteSize
 
@@ -940,51 +1001,18 @@ function _punkApplyLayout()
         return "scale", "gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
     end
 
-    -- The client's own container rectangle is kept.  Writing ScreenInsets
-    -- moved a working 375.38x794.46 container to 375.38x834.46 and stopped
-    -- the renderer drawing it (device, release f).  There is also no
-    -- device-independent threshold that tells 794 from 834: the difference
-    -- is 6.3% against 11.6% of the viewport, so a phone, a tablet and an
-    -- emulator would each need a different constant.  Normalising the
-    -- client's rectangle belongs in the client, not in this script.
+    -- The window is composited only when the container's rectangle is the
+    -- camera's rectangle.  Every session that drew had gui == view (the
+    -- portrait one was 375.38x794.46 on both sides), and every session
+    -- that drew nothing had gui != view (794.46 against 747.46).  The
+    -- difference is the topbar inset applied twice.
+    --
+    -- ScreenInsets decides that rectangle, so try every value this build
+    -- supports and keep the one closest to the viewport.  The target is
+    -- the viewport itself - no topbar constant, no device number.
+    local inset = _punkMatchViewport(vx, vy)
+
     g = ScreenGui.AbsoluteSize
-
-    -- When the container is laid out for a rectangle the renderer is not
-    -- compositing, no property change can bring the layer back.  One real
-    -- surface event can, because the engine then recomputes its viewport
-    -- from the live window - the same thing a device rotation does.  Fire
-    -- it once per session, and only when the container is off by more
-    -- than a bar-sized inset (a normal topbar is ~6% of the viewport, the
-    -- broken extra is ~12%).  The threshold only decides whether to send
-    -- the harmless resync; it never moves anything.
-    if not _punkResynced then
-        _punkResynced = true
-
-        local width_off = math.abs(g.X - vx) > vx * 0.015
-        local surplus = g.Y - vy
-
-        if width_off or surplus > vy * 0.10 then
-            if resync_viewport then
-                local ok, status = pcall(resync_viewport)
-                print("[PunkX] loader: surface resync status="
-                    .. tostring(ok and status or "call failed"))
-            end
-        end
-
-        -- Portrait is the state in which nothing is ever drawn: every
-        -- failing session logged orient=Portrait, the working one logged
-        -- Landscape.  Rotating the device by hand fixes it, so ask the
-        -- activity for landscape once; the engine then re-lays out from
-        -- the live surface exactly as it does on a manual rotation.
-        local orient = _punkOrientationText()
-
-        if orient:find("Portrait") and force_landscape then
-            local ok, status = pcall(force_landscape)
-            print("[PunkX] loader: landscape request status="
-                .. tostring(ok and status or "call failed")
-                .. " (was " .. orient .. ")")
-        end
-    end
 
     local width = math.max(220, math.min(g.X, vx) - 24)
     local height = math.max(140, math.min(g.Y, vy) * 0.45)
@@ -995,6 +1023,7 @@ function _punkApplyLayout()
 
     return "safe", "gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
         .. " view=" .. tostring(vx) .. "x" .. tostring(vy)
+        .. (inset and (" " .. inset) or "")
 end
 
 -- Re-place immediately when the camera viewport changes (rotation or a
