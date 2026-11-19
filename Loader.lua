@@ -1,9 +1,17 @@
 -- // PUNK X OFFICIAL LOADER //
 -- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
+-- Deployment stamp.  Every deployed file prints this tag, so one log
+-- line answers "is the file I uploaded the file that ran?".
+print("[PunkX] release 2026-11-19q loader")
 
 -- ⚠️ CRITICAL: Wait for game to fully load
-repeat task.wait(0.5) until game:IsLoaded()
-task.wait(1.5) -- Extended wait for AC stabilization
+-- No pre-build wait.  on_game_loaded already means the game is loaded,
+-- and every task.wait here costs a full scheduler round-trip: on this
+-- build a resumed continuation can take seconds, so the old 8 x 0.25 s
+-- landscape poll turned into 15-35 seconds with no window on screen
+-- (device 2026-11-20: 33 s between `release ... loader` and the Auth
+-- fetch in the portrait game, 15 s in Blox Fruits).  The window adapts
+-- its own geometry, so build it immediately.
 
 -- ==========================================
 -- 🛡️ FIX #1: SILENT CONSOLE
@@ -189,12 +197,26 @@ while not authLoaded and waited < 15 do
 end
 
 if not success or not KeyLib then
-    return -- Fail silently or check console
+    warn("[PUNK X] Auth library failed to load; the key window cannot start. "
+        .. "See the HttpGet / loadstring error above.")
+    return
 end
+
+-- Hand the loaded library to the UI.  Without this the UI downloaded and
+-- loaded a second copy of Auth.lua on the game thread, and when that copy
+-- came back empty the UI destroyed its own ScreenGui ("Auth Lib Failed."
+-- and a window that appears for a frame and vanishes).
+if getgenv then getgenv().PUNK_X_AUTH = KeyLib end
+_G.PUNK_X_AUTH = KeyLib
 
 -- // HELPER FUNCTIONS //
 
 local function LaunchPunkX(passedKey, targetUrl)
+    -- Unlock the executor for this session.  The loader only reaches here
+    -- after Panda auth accepted a key (or the dev key), so this is the one
+    -- moment autoexec may start running.  __punk_authorize is native; if it
+    -- is missing the call is skipped rather than erroring.
+    if __punk_authorize then pcall(__punk_authorize) end
     if getgenv then getgenv().PUNK_X_KEY = passedKey end
     _G.PUNK_X_KEY = passedKey 
     
@@ -221,6 +243,7 @@ local function LaunchPunkX(passedKey, targetUrl)
         end
         
         if not content then
+            warn("[PUNK X] UI download failed for " .. tostring(targetUrl))
             PlaySound(SOUNDS.Error)
             Notify("Punk X Error", "Download failed.")
             return
@@ -228,12 +251,14 @@ local function LaunchPunkX(passedKey, targetUrl)
         
         local func, syntax_error = loadstring(content)
         if not func then
+            warn("[PUNK X] UI syntax error: " .. tostring(syntax_error))
             Notify("Punk X", "Syntax Error in Script")
             return
         end
         
         local run_success, run_err = pcall(func)
         if not run_success then
+            warn("[PUNK X] UI execution failed: " .. tostring(run_err))
             Notify("Punk X", "Execution Failed")
         end
     end)
@@ -271,20 +296,54 @@ end
 
 -- Cleanup old
 local parent = GetSecureParent()
+-- Milestone: if the key window never appears, this line says where it was
+-- meant to go.  A GUI parented to a container that does not render is the
+-- failure mode that produces no error anywhere (build d249221 parented to
+-- CoreGui and drew nothing).
+print("[PunkX] loader: key window parent = "
+    .. tostring(parent and parent:GetFullName()))
 for _, v in pairs(parent:GetChildren()) do
-    -- Remove any GUI that looks like ours
-    if v.Name:match("Px_") or v.Name == "PunkX_ModernUI" then
+    -- Name matching alone missed the executor UI: its ScreenGui is named
+    -- with a random hex string, so after a rejoin or a place change the
+    -- previous UI stayed on screen and the next one stacked on top.  The
+    -- attribute travels with the instance, so it survives the VM rebuild
+    -- that clears getgenv().
+    local owned = false
+    pcall(function() owned = v:GetAttribute("PunkX") ~= nil end)
+    if owned or v.Name:match("Px_") or v.Name == "PunkX_ModernUI" then
         v:Destroy()
     end
 end
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = GUI_RANDOM_NAME -- Randomized Name
-ScreenGui.Parent = parent
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+-- Properties first, parent last.  Roblox's respawn reset only spares a
+-- ScreenGui whose ResetOnSpawn is already false when it enters PlayerGui,
+-- and a window created a few milliseconds before the character spawns is
+-- otherwise cleared without a trace (the "no UI at all" report).
 ScreenGui.ResetOnSpawn = false
--- Removed DisplayOrder modification (Standard 0 is safer)
-ScreenGui.IgnoreGuiInset = true 
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.IgnoreGuiInset = true
+-- Ask the engine for landscape while this container is visible.  In the
+-- failing games the window surface is already landscape while the
+-- engine's GUI space is portrait; this is the one orientation lever a
+-- script owns, and it is applied to our own ScreenGui only - never to
+-- the game's, which would fight the game's own layout.
+pcall(function()
+    ScreenGui.ScreenOrientation = Enum.ScreenOrientation.LandscapeSensor
+end)
+ScreenGui.Enabled = true
+-- Above the game's own ScreenGuis: a full-screen loading/menu GUI at a
+-- higher DisplayOrder would otherwise draw on top of the window, which
+-- looks identical to the window not existing.  DisplayOrder only orders
+-- PlayerGui layers; the CoreGui topbar is a separate layer.
+ScreenGui.DisplayOrder = 999999
+ScreenGui.Parent = parent
+print("[PunkX] loader: key window attached under "
+    .. tostring(ScreenGui.Parent and ScreenGui.Parent:GetFullName()))
+-- Ownership marker the next session can see even though getgenv() is
+-- rebuilt with the VM.
+pcall(function() ScreenGui:SetAttribute("PunkX", "loader") end)
 
 -- ⚠️ REMOVED BLUR EFFECT (BAC-7205/82010 Fix) ⚠️
 -- Do not add Instance.new("BlurEffect") anywhere
@@ -488,10 +547,16 @@ local function TweenObj(obj, props, time)
 end
 
 local function OpenLoader()
+    ScreenGui.Enabled = true
+    print("[PunkX] loader: OpenLoader ran")
     Notify("Punk X", "Welcome Back!")
     MainFrame.Visible = true
     -- REMOVED BLUR TWEEN
-    TweenObj(MainFrame, {Size = UDim2.new(0.5, 0, 0.45, 0)}, 0.4) 
+    -- Apply the size first: on device the tween alone left the window at
+    -- UDim2.new(0,0,0,0) for the whole session (probe: ScreenGui 335x834,
+    -- MainFrame absSize 0,0), i.e. an enabled, visible, 0x0 window.
+    MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0)
+    pcall(function() TweenObj(MainFrame, {Size = UDim2.new(0.5, 0, 0.45, 0)}, 0.4) end) 
     TweenObj(Stroke, {Transparency = 0.5}, 0.8) 
 end
 
@@ -686,7 +751,22 @@ local autoLogged = false
 local saved = KeyLib.GetSavedKey()
 local env_preference = nil
 
-if isfile and isfile(ENV_FILE_NAME) then env_preference = readfile(ENV_FILE_NAME) end
+if isfile and isfile(ENV_FILE_NAME) then
+    -- Trim and upper-case before comparing.  An env file written with a
+    -- trailing newline matched neither branch below, so the loader fell
+    -- through to the key window and the saved environment looked
+    -- forgotten - indistinguishable from no UI on rejoin.
+    local raw_env = readfile(ENV_FILE_NAME)
+    if type(raw_env) == "string" then
+        env_preference = raw_env:gsub("%s+", ""):upper()
+    end
+end
+
+-- Which auto-login branch is about to run.  A saved key is invisible
+-- otherwise: the key window is built, then destroyed by the branch
+-- below, which looks identical to "the window never appeared".
+print("[PunkX] auto-login: saved=" .. (saved and "yes" or "no")
+    .. " env=" .. tostring(env_preference))
 
 if saved then
     if saved == SECRET_DEV_KEY then
@@ -714,6 +794,451 @@ if saved then
 end
 
 if not autoLogged then OpenLoader() end
+
+-- Geometry watchdog.  It never rebuilds the container (device: three fresh
+-- ScreenGuis in a row reported the same stale AbsoluteSize, and each
+-- rebuild destroys whatever the user is typing into).  It only re-places
+-- the frame.
+--
+-- When the GUI viewport and the camera disagree, the GUI space cannot be
+-- trusted, so the window is anchored top-left at a size that fits inside
+-- the smaller of the two rectangles.  That is visible whichever one is
+-- the real one.  When they agree, the normal centred layout is restored.
+--
+-- Decisive device evidence, from three runs of the same release:
+--   drawn     gui=375.38x794.46  view=375.38x747.46
+--   not drawn gui=375.38x834.46  view=375.38x747.46
+--   not drawn gui=335.38x834.46  view=375.38x747.46
+-- and drawn again wherever gui == view (754.46x375.38).  The window is
+-- 351x336 at 12,12 in every one of them, so the frame, the parent and the
+-- anchoring are not what differs - the ScreenGui's own rectangle is.
+-- 794 = 747 + the topbar; 834 = the full screen including the navigation
+-- inset.  When the client hands out the full-screen rectangle the layer
+-- is laid out for a screen the renderer is not compositing, and nothing
+-- inside it is ever drawn.
+--
+-- So the container rectangle is the thing that decides it, and the user's
+-- logs give the rule without any device constant: every session that
+-- drew had gui == view, and every session that drew nothing had
+-- gui != view (794.46 against 747.46 - the topbar inset applied twice).
+-- _punkMatchViewport therefore tries every ScreenInsets value the build
+-- supports and keeps the one closest to the camera viewport, which is
+-- the target on any screen.  Writing ScreenInsets blindly (release f)
+-- moved a working 794.46 to 834.46, which is why the original value is
+-- restored whenever no candidate measures better.
+--
+-- _punkTopLayer covers the other failure class: a ScreenGui is only
+-- ordered against its siblings, so a game HUD at an equal or higher
+-- DisplayOrder draws over the window no matter where the frame is.  It
+-- raises the order only when something actually outranks us.
+
+-- Make the container the top sibling in PlayerGui.  A ScreenGui is only
+-- ordered against its siblings, so this is the only thing that decides
+-- whether a game's HUD can draw over the window.  A tie is settled by
+-- child order, which is why the last-resort branch re-parents.
+local _punkTopOrder = nil
+
+function _punkTopLayer()
+    local own_parent = ScreenGui.Parent
+    if not own_parent then return nil end
+
+    local best = nil
+
+    for _, v in ipairs(own_parent:GetChildren()) do
+        if v ~= ScreenGui then
+            local is_gui, order = pcall(function()
+                if v:IsA("ScreenGui") then return v.DisplayOrder end
+                return nil
+            end)
+
+            if is_gui and order and (best == nil or order > best) then
+                best = order
+            end
+        end
+    end
+
+    if best == nil or best < ScreenGui.DisplayOrder then return nil end
+
+    local target = best + 1
+
+    if target > 2147483647 then
+        target = 2147483647
+        pcall(function()
+            ScreenGui.Parent = nil
+            ScreenGui.Parent = own_parent
+        end)
+    end
+
+    local changed = target ~= ScreenGui.DisplayOrder
+    pcall(function() ScreenGui.DisplayOrder = target end)
+
+    if changed and _punkTopOrder ~= target then
+        _punkTopOrder = target
+        return "display " .. tostring(target)
+            .. " (a game ScreenGui used " .. tostring(best) .. ")"
+    end
+
+    return nil
+end
+
+-- PlayerGui.CurrentScreenOrientation is what the engine is actually
+-- using; it is the readback that says whether the landscape request
+-- above took effect, so both state lines report it.
+function _punkOrientationText()
+    local value = "?"
+    pcall(function()
+        local pg = ScreenGui.Parent
+        if pg then value = tostring(pg.CurrentScreenOrientation) end
+    end)
+    return value
+end
+
+-- The window draws only when the container's rectangle is the camera's
+-- rectangle.  ScreenInsets decides it, so every value this build
+-- supports is tried and the one closest to the viewport kept; nothing
+-- is applied unless it beats the current rectangle, and the original
+-- is restored otherwise.
+local _punkInsetsTried = false
+local _punkFlips = 0
+local _punkFlipAt = 0
+local _punkApplied = nil
+
+-- Retried orientation flip.  A single flip is unreliable on this client:
+-- the window rotates (nativeResize 1220x2712 then 2712x1220) but the
+-- engine sometimes keeps the old GUI viewport, so one attempt per
+-- session looked like "works sometimes, not others".  Up to three
+-- attempts, three seconds apart, and only while the container still
+-- does not match the camera.
+function _punkWatchFlip()
+    if not force_landscape then return end
+    if _punkFlips >= 3 then return end
+
+    local g = ScreenGui.AbsoluteSize
+    if g.X < 1 or g.Y < 1 then return end
+
+    local cam = nil
+    pcall(function()
+        local ws = game:GetService("Workspace")
+        cam = ws and ws.CurrentCamera
+    end)
+
+    if not cam then return end
+
+    local vx, vy = cam.ViewportSize.X, cam.ViewportSize.Y
+
+    if math.abs(g.X - vx) <= 2 and math.abs(g.Y - vy) <= 2 then return end
+
+    local now = os.clock()
+
+    if now - _punkFlipAt < 3 then return end
+
+    _punkFlips = _punkFlips + 1
+    _punkFlipAt = now
+
+    local ok, status = pcall(force_landscape)
+    print("[PunkX] loader: orientation flip " .. tostring(_punkFlips)
+        .. " status=" .. tostring(ok and status or "call failed"))
+end
+
+function _punkMatchViewport(vx, vy)
+    if _punkInsetsTried then return nil end
+    _punkInsetsTried = true
+
+    local size = ScreenGui.AbsoluteSize
+    local best, best_name = nil, nil
+    local best_score = math.abs(size.X - vx) + math.abs(size.Y - vy)
+    local original = nil
+
+    pcall(function() original = ScreenGui.ScreenInsets end)
+
+    local function attempt(name, value)
+        if not pcall(function() ScreenGui.ScreenInsets = value end) then
+            return
+        end
+
+        local now = ScreenGui.AbsoluteSize
+        local score = math.abs(now.X - vx) + math.abs(now.Y - vy)
+
+        if score < best_score then
+            best, best_score, best_name = value, score, name
+        end
+    end
+
+    pcall(function()
+        attempt("DeviceSafeInsets", Enum.ScreenInsets.DeviceSafeInsets)
+    end)
+    pcall(function()
+        attempt("CoreUISafeInsets", Enum.ScreenInsets.CoreUISafeInsets)
+    end)
+    pcall(function()
+        attempt("TopbarSafeInsets", Enum.ScreenInsets.TopbarSafeInsets)
+    end)
+    pcall(function() attempt("None", Enum.ScreenInsets.None) end)
+
+    if best then
+        pcall(function() ScreenGui.ScreenInsets = best end)
+    elseif original ~= nil then
+        pcall(function() ScreenGui.ScreenInsets = original end)
+    end
+
+    local after = ScreenGui.AbsoluteSize
+
+    if after.X == size.X and after.Y == size.Y then
+        return nil
+    end
+
+    _punkLayoutMode = nil
+
+    return "insets " .. tostring(size.X) .. "x" .. tostring(size.Y)
+        .. " -> " .. tostring(after.X) .. "x" .. tostring(after.Y)
+        .. " (" .. tostring(best_name) .. ")"
+end
+
+function _punkApplyLayout()
+    local g = ScreenGui.AbsoluteSize
+
+    -- AbsoluteSize is only meaningful once the container has been laid
+    -- out; measuring 0x0 would size the window from zero and then lock the
+    -- mode in, so report nothing and let the next tick retry.
+    if g.X < 1 or g.Y < 1 then
+        return nil, "not laid out yet"
+    end
+
+    local vx, vy = nil, nil
+
+    pcall(function()
+        local ws = game:GetService("Workspace")
+        local cam = ws and ws.CurrentCamera
+        if cam then vx, vy = cam.ViewportSize.X, cam.ViewportSize.Y end
+    end)
+
+    if vx == nil then
+        return "scale", "no-camera"
+    end
+
+    -- Anything but an exact match is the safe layout: the container is not
+    -- the camera's rectangle, so the frame is anchored top-left inside the
+    -- smaller of the two and cannot land outside either one.
+    local width_match = math.abs(g.X - vx) <= 8
+    local height_match = math.abs(g.Y - vy) <= 8
+    local consistent = width_match and height_match
+
+    local mode = consistent and "scale" or "safe"
+
+    -- Re-place when the mode OR the two rectangles changed.  Keying on the
+    -- mode alone missed the re-layout that follows the orientation flip:
+    -- the mode stayed "safe" while the container went from 375x834 to
+    -- 834x375, so the window kept the geometry measured mid-transition
+    -- (device: frame=351x168 at=180,28).
+    local same_rect = _punkApplied ~= nil
+        and _punkApplied[1] == g.X and _punkApplied[2] == g.Y
+        and _punkApplied[3] == vx and _punkApplied[4] == vy
+
+    if _punkLayoutMode == mode and same_rect then
+        return mode, "unchanged"
+    end
+
+    _punkLayoutMode = mode
+    _punkApplied = { g.X, g.Y, vx, vy }
+
+    if consistent then
+        MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+        MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0)
+        MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+        return "scale", "gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
+    end
+
+    -- The window is composited only when the container's rectangle is the
+    -- camera's rectangle.  Every session that drew had gui == view (the
+    -- portrait one was 375.38x794.46 on both sides), and every session
+    -- that drew nothing had gui != view (794.46 against 747.46).  The
+    -- difference is the topbar inset applied twice.
+    --
+    -- ScreenInsets decides that rectangle, so try every value this build
+    -- supports and keep the one closest to the viewport.  The target is
+    -- the viewport itself - no topbar constant, no device number.
+    local inset = _punkMatchViewport(vx, vy)
+
+    g = ScreenGui.AbsoluteSize
+
+    -- Tier 1 failed if the rectangle still is not the viewport: no
+    -- ScreenInsets value can reach it on this client (device: the best
+    -- candidate was 375.38x834.46 against a 375.38x747.46 viewport).  The
+    -- orientation flip belongs to the watchdog, not here: it has to be
+    -- retried, because the engine does not always pick the re-layout up.
+
+    local width = math.max(220, math.min(g.X, vx) - 24)
+    local height = math.max(140, math.min(g.Y, vy) * 0.45)
+
+    -- Centred, not pinned to the corner.  After the orientation flip the
+    -- container can be larger than the render viewport (device: 834x375
+    -- against 754x375) and the layer still composites, so the window
+    -- belongs in the middle of the rectangle the player can actually see.
+    -- AnchorPoint keeps that true for any container size.
+    MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    MainFrame.Size = UDim2.new(0, width, 0, height)
+    MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+
+    return "safe", "gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
+        .. " view=" .. tostring(vx) .. "x" .. tostring(vy)
+        .. (inset and (" " .. inset) or "")
+end
+
+-- Re-place immediately when the camera viewport changes (rotation or a
+-- late surface resize) instead of waiting for the next poll.  The mode
+-- latch is cleared so the same mode name is applied again against the
+-- new rectangle.
+pcall(function()
+    local cam = game:GetService("Workspace").CurrentCamera
+    if cam then
+        cam:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+            _punkLayoutMode = nil
+            _punkApplyLayout()
+        end)
+    end
+end)
+
+-- Watchdog on RunService.Heartbeat rather than task.wait: a generation
+-- that is joined instantly can leave task.wait continuations late, and a
+-- frame that is never placed looks exactly like a window that is drawn
+-- nowhere.  Heartbeat is driven by the engine's own step, and the
+-- accumulator keeps the work at once per second.
+local _punkLastTick = 0
+local _punkWatchMode = nil
+
+game:GetService("RunService").Heartbeat:Connect(function()
+    local now = os.clock()
+
+    if now - _punkLastTick < 1 then return end
+    _punkLastTick = now
+
+    -- CloseLoader() destroys the container when the UI takes over, so
+    -- this is a normal end of life, not an error.
+    if ScreenGui.Parent == nil then return end
+
+    local top = _punkTopLayer()
+
+    if top then
+        print("[PunkX] loader: window layer " .. tostring(top))
+    end
+
+    _punkWatchFlip()
+
+    local new_mode, detail = _punkApplyLayout()
+
+    if new_mode and new_mode ~= _punkWatchMode then
+        _punkWatchMode = new_mode
+        print("[PunkX] loader: layout mode " .. tostring(new_mode)
+            .. " (" .. tostring(detail) .. ")")
+    end
+end)
+
+-- Place the window now instead of waiting for the first beat.  If the
+-- container has not been laid out yet this reports nothing and the
+-- watchdog retries a second later.
+do
+    local top = _punkTopLayer()
+
+    if top then
+        print("[PunkX] loader: window layer " .. tostring(top))
+    end
+
+    _punkWatchFlip()
+
+    local mode, detail = _punkApplyLayout()
+
+    if mode then
+        _punkWatchMode = mode
+        print("[PunkX] loader: layout mode " .. tostring(mode)
+            .. " (" .. tostring(detail) .. ")")
+    end
+end
+
+-- One late report, fifteen seconds in: if the window is ever still not
+-- visible after the game has settled, this line carries the whole state
+-- instead of leaving it to another round of guessing.
+task.delay(15, function()
+    if _punkApplyLayout then _punkApplyLayout() end
+    local ok, state = pcall(function()
+        local g = ScreenGui.AbsoluteSize
+        local vx, vy = -1, -1
+        pcall(function()
+            local ws = game:GetService("Workspace")
+            local cam = ws and ws.CurrentCamera
+            if cam then vx, vy = cam.ViewportSize.X, cam.ViewportSize.Y end
+        end)
+        local siblings, top_order = 0, -1
+        pcall(function()
+            local own_parent = ScreenGui.Parent
+            if not own_parent then return end
+            for _, v in ipairs(own_parent:GetChildren()) do
+                if v ~= ScreenGui and v:IsA("ScreenGui") then
+                    siblings = siblings + 1
+                    if v.DisplayOrder > top_order then top_order = v.DisplayOrder end
+                end
+            end
+        end)
+        return "parent=" .. tostring(ScreenGui.Parent and ScreenGui.Parent:GetFullName())
+            .. " enabled=" .. tostring(ScreenGui.Enabled)
+            .. " display=" .. tostring(ScreenGui.DisplayOrder)
+            .. " siblings=" .. tostring(siblings) .. "/" .. tostring(top_order)
+            .. " orient=" .. _punkOrientationText()
+            .. " gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
+            .. " view=" .. tostring(vx) .. "x" .. tostring(vy)
+            .. " frame=" .. tostring(MainFrame.AbsoluteSize.X) .. "x"
+                .. tostring(MainFrame.AbsoluteSize.Y)
+            .. " at=" .. tostring(MainFrame.AbsolutePosition.X) .. ","
+                .. tostring(MainFrame.AbsolutePosition.Y)
+            .. " visible=" .. tostring(MainFrame.Visible)
+    end)
+    print("[PunkX] loader: window state (15s) "
+        .. (ok and state or ("probe failed: " .. tostring(state))))
+end)
+
+-- One-shot state report.  If the window is ever invisible again this
+-- line names the reason instead of leaving it to guesswork: a nil parent
+-- means the container dropped it, enabled=false means the key-failure
+-- guard fired, size=0x0 means the geometry was cleared, gui/view tells
+-- whether the GUI viewport matches the renderer, and a healthy report
+-- means the frame exists but is drawn elsewhere (z-order).
+task.delay(1, function()
+    local ok, state = pcall(function()
+        -- Rebuilding the container does not help: on device three fresh
+        -- ScreenGuis in a row all reported the same stale AbsoluteSize while
+        -- the camera reported a different viewport, so the mismatch lives in
+        -- the client's GUI viewport.  The watcher below only reports it.
+
+        if MainFrame.AbsoluteSize.X == 0 or MainFrame.AbsoluteSize.Y == 0 then
+            MainFrame.Visible = true
+            ScreenGui.Enabled = true
+            -- Ask the watchdog to place it again instead of forcing a
+            -- scale size here: this frame may belong in the safe layout.
+            _punkLayoutMode = nil
+        end
+
+        local view_x, view_y = -1, -1
+        pcall(function()
+            local ws = game:GetService("Workspace")
+            local cam = ws and ws.CurrentCamera
+            if cam then
+                view_x, view_y = cam.ViewportSize.X, cam.ViewportSize.Y
+            end
+        end)
+
+        return "parent=" .. tostring(ScreenGui.Parent and ScreenGui.Parent:GetFullName())
+            .. " enabled=" .. tostring(ScreenGui.Enabled)
+            .. " display=" .. tostring(ScreenGui.DisplayOrder)
+            .. " orient=" .. _punkOrientationText()
+            .. " gui=" .. tostring(ScreenGui.AbsoluteSize.X) .. "x" .. tostring(ScreenGui.AbsoluteSize.Y)
+            .. " view=" .. tostring(view_x) .. "x" .. tostring(view_y)
+            .. " frame=" .. tostring(MainFrame.AbsoluteSize.X) .. "x" .. tostring(MainFrame.AbsoluteSize.Y)
+            .. " at=" .. tostring(MainFrame.AbsolutePosition.X) .. "," .. tostring(MainFrame.AbsolutePosition.Y)
+            .. " visible=" .. tostring(MainFrame.Visible)
+    end)
+
+    print("[PunkX] loader: window state "
+        .. (ok and state or ("probe failed: " .. tostring(state))))
+end)
 
 -- // 🛡️ SAFE ANTI-AFK (Passive Mode) //
 -- Replaces "VirtualUser" to bypass BAC-7205
