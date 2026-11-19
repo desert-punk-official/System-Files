@@ -2,7 +2,7 @@
 -- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
 -- Deployment stamp.  Every deployed file prints this tag, so one log
 -- line answers "is the file I uploaded the file that ran?".
-print("[PunkX] release 2026-11-19e loader")
+print("[PunkX] release 2026-11-19f loader")
 
 -- ⚠️ CRITICAL: Wait for game to fully load
 repeat task.wait(0.5) until game:IsLoaded()
@@ -813,19 +813,101 @@ if not autoLogged then OpenLoader() end
 -- the smaller of the two rectangles.  That is visible whichever one is
 -- the real one.  When they agree, the normal centred layout is restored.
 --
--- One failure is not geometry at all.  Device logs show a container whose
--- GUI viewport does not even match the camera *width* (gui=335x834 vs
--- view=375x747): every property reads healthy, the frame has the size and
--- position it was given, and nothing is drawn until the device rotates.
--- Two causes fit that, and one action covers both - the ScreenGui is
--- still registered against a surface the renderer stopped drawing, or a
--- HUD created after it is drawn on top.  Re-parenting the same instances
--- forces a fresh registration and moves the container last in the child
--- list.  It is not a rebuild, so nothing already typed is lost.  CoreGui
--- is deliberately not used: build d249221 parented there and drew nothing
--- on this client.
+-- Decisive device evidence: the *same* geometry (gui=375.38x794.46,
+-- view=375.38x747.46, frame 351x336 at 12,12, visible=true) drew the
+-- window in one game and nothing at all in another.  So geometry,
+-- rotation and the parent are not the cause: in the failing games a
+-- ScreenGui is drawn over the window.  DisplayOrder only orders
+-- siblings inside PlayerGui, so a game that uses an equal or higher
+-- order wins no matter where our frame is.  _punkTopLayer keeps the
+-- container strictly above every sibling, and only raises the order
+-- when something actually outranks it.
+--
+-- Two smaller failures are handled here as well: a GUI viewport that
+-- lags the camera (gui=335x834 vs view=375x747) is refreshed through
+-- ScreenInsets, and a container registered against that stale surface is
+-- re-parented once.  Neither rebuilds anything, so nothing typed is
+-- lost.  CoreGui is deliberately not used: build d249221 parented there
+-- and drew nothing on this client.
 local _punkContainer = nil
 
+-- ScreenInsets is what pins a ScreenGui to the device rectangle.  A
+-- viewport that lags the camera means the client is still laying GUIs
+-- out for a screen it no longer has, so re-applying it forces a fresh
+-- layout.  Unsupported fields are ignored by pcall; the before/after
+-- sizes are logged so the effect is visible instead of guessed.
+local _punkInsetsDone = false
+
+function _punkRefreshInsets()
+    if _punkInsetsDone then return nil end
+    _punkInsetsDone = true
+
+    local before = ScreenGui.AbsoluteSize
+
+    pcall(function() ScreenGui.ScreenInsets = Enum.ScreenInsets.None end)
+    pcall(function()
+        ScreenGui.SafeAreaCompatibility = Enum.SafeAreaCompatibility.None
+    end)
+    pcall(function() ScreenGui.ClipToDeviceSafeArea = false end)
+
+    local after = ScreenGui.AbsoluteSize
+
+    return "insets " .. tostring(before.X) .. "x" .. tostring(before.Y)
+        .. " -> " .. tostring(after.X) .. "x" .. tostring(after.Y)
+end
+
+-- Make the container the top sibling in PlayerGui.  A ScreenGui is only
+-- ordered against its siblings, so this is the only thing that decides
+-- whether a game's HUD can draw over the window.  A tie is settled by
+-- child order, which is why the last-resort branch re-parents.
+local _punkTopOrder = nil
+
+function _punkTopLayer()
+    local own_parent = ScreenGui.Parent
+    if not own_parent then return nil end
+
+    local best = nil
+
+    for _, v in ipairs(own_parent:GetChildren()) do
+        if v ~= ScreenGui then
+            local is_gui, order = pcall(function()
+                if v:IsA("ScreenGui") then return v.DisplayOrder end
+                return nil
+            end)
+
+            if is_gui and order and (best == nil or order > best) then
+                best = order
+            end
+        end
+    end
+
+    if best == nil or best < ScreenGui.DisplayOrder then return nil end
+
+    local target = best + 1
+
+    if target > 2147483647 then
+        target = 2147483647
+        pcall(function()
+            ScreenGui.Parent = nil
+            ScreenGui.Parent = own_parent
+        end)
+    end
+
+    local changed = target ~= ScreenGui.DisplayOrder
+    pcall(function() ScreenGui.DisplayOrder = target end)
+
+    if changed and _punkTopOrder ~= target then
+        _punkTopOrder = target
+        return "display " .. tostring(target)
+            .. " (a game ScreenGui used " .. tostring(best) .. ")"
+    end
+
+    return nil
+end
+
+-- Re-parent the same instances once (never a rebuild): the container may
+-- still be registered against a surface the renderer has stopped drawing,
+-- and being last in the child list also settles a DisplayOrder tie.
 function _punkRebindContainer(rebind)
     if _punkContainer then return _punkContainer end
 
@@ -849,6 +931,14 @@ end
 
 function _punkApplyLayout()
     local g = ScreenGui.AbsoluteSize
+
+    -- AbsoluteSize is only meaningful once the container has been laid
+    -- out; measuring 0x0 would size the window from zero and then lock the
+    -- mode in, so report nothing and let the next tick retry.
+    if g.X < 1 or g.Y < 1 then
+        return nil, "not laid out yet"
+    end
+
     local vx, vy = nil, nil
 
     pcall(function()
@@ -886,6 +976,11 @@ function _punkApplyLayout()
         return "scale", "gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
     end
 
+    -- Refresh the safe-area layout first: if it was pinned to a screen the
+    -- client no longer has, this makes AbsoluteSize follow the real one
+    -- before anything is measured.
+    local insets = _punkRefreshInsets()
+
     local container = _punkRebindContainer(not width_match)
 
     -- A rebind can resize the container, so measure again before
@@ -902,29 +997,60 @@ function _punkApplyLayout()
     return "safe", "container=" .. container
         .. " gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
         .. " view=" .. tostring(vx) .. "x" .. tostring(vy)
+        .. (insets and (" " .. insets) or "")
 end
 
--- Re-place on every transition, once per second.  Applying it only when
--- the mode changes keeps it off the frame's back during normal play.
-task.spawn(function()
-    local mode = nil
+-- Watchdog on RunService.Heartbeat rather than task.wait: a generation
+-- that is joined instantly can leave task.wait continuations late, and a
+-- frame that is never placed looks exactly like a window that is drawn
+-- nowhere.  Heartbeat is driven by the engine's own step, and the
+-- accumulator keeps the work at once per second.
+local _punkLastTick = 0
+local _punkWatchMode = nil
 
-    while true do
-        task.wait(1)
+game:GetService("RunService").Heartbeat:Connect(function()
+    local now = os.clock()
 
-        -- CloseLoader() destroys the container when the UI takes over, so
-        -- this is a normal end of life, not an error.
-        if ScreenGui.Parent == nil then break end
+    if now - _punkLastTick < 1 then return end
+    _punkLastTick = now
 
-        local new_mode, detail = _punkApplyLayout()
+    -- CloseLoader() destroys the container when the UI takes over, so
+    -- this is a normal end of life, not an error.
+    if ScreenGui.Parent == nil then return end
 
-        if new_mode and new_mode ~= mode then
-            mode = new_mode
-            print("[PunkX] loader: layout mode " .. tostring(new_mode)
-                .. " (" .. tostring(detail) .. ")")
-        end
+    local top = _punkTopLayer()
+
+    if top then
+        print("[PunkX] loader: window layer " .. tostring(top))
+    end
+
+    local new_mode, detail = _punkApplyLayout()
+
+    if new_mode and new_mode ~= _punkWatchMode then
+        _punkWatchMode = new_mode
+        print("[PunkX] loader: layout mode " .. tostring(new_mode)
+            .. " (" .. tostring(detail) .. ")")
     end
 end)
+
+-- Place the window now instead of waiting for the first beat.  If the
+-- container has not been laid out yet this reports nothing and the
+-- watchdog retries a second later.
+do
+    local top = _punkTopLayer()
+
+    if top then
+        print("[PunkX] loader: window layer " .. tostring(top))
+    end
+
+    local mode, detail = _punkApplyLayout()
+
+    if mode then
+        _punkWatchMode = mode
+        print("[PunkX] loader: layout mode " .. tostring(mode)
+            .. " (" .. tostring(detail) .. ")")
+    end
+end
 
 -- One late report, fifteen seconds in: if the window is ever still not
 -- visible after the game has settled, this line carries the whole state
@@ -939,9 +1065,22 @@ task.delay(15, function()
             local cam = ws and ws.CurrentCamera
             if cam then vx, vy = cam.ViewportSize.X, cam.ViewportSize.Y end
         end)
+        local siblings, top_order = 0, -1
+        pcall(function()
+            local own_parent = ScreenGui.Parent
+            if not own_parent then return end
+            for _, v in ipairs(own_parent:GetChildren()) do
+                if v ~= ScreenGui and v:IsA("ScreenGui") then
+                    siblings = siblings + 1
+                    if v.DisplayOrder > top_order then top_order = v.DisplayOrder end
+                end
+            end
+        end)
         return "parent=" .. tostring(ScreenGui.Parent and ScreenGui.Parent:GetFullName())
             .. " enabled=" .. tostring(ScreenGui.Enabled)
             .. " container=" .. tostring(_punkContainer)
+            .. " display=" .. tostring(ScreenGui.DisplayOrder)
+            .. " siblings=" .. tostring(siblings) .. "/" .. tostring(top_order)
             .. " gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
             .. " view=" .. tostring(vx) .. "x" .. tostring(vy)
             .. " frame=" .. tostring(MainFrame.AbsoluteSize.X) .. "x"
@@ -968,9 +1107,11 @@ task.delay(1, function()
         -- the client's GUI viewport.  The watcher below only reports it.
 
         if MainFrame.AbsoluteSize.X == 0 or MainFrame.AbsoluteSize.Y == 0 then
-            MainFrame.Size = UDim2.new(0.5, 0, 0.45, 0)
             MainFrame.Visible = true
             ScreenGui.Enabled = true
+            -- Ask the watchdog to place it again instead of forcing a
+            -- scale size here: this frame may belong in the safe layout.
+            _punkLayoutMode = nil
         end
 
         local view_x, view_y = -1, -1
