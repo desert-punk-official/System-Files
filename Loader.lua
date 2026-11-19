@@ -2,7 +2,7 @@
 -- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
 -- Deployment stamp.  Every deployed file prints this tag, so one log
 -- line answers "is the file I uploaded the file that ran?".
-print("[PunkX] release 2026-11-19d loader")
+print("[PunkX] release 2026-11-19e loader")
 
 -- ⚠️ CRITICAL: Wait for game to fully load
 repeat task.wait(0.5) until game:IsLoaded()
@@ -812,6 +812,41 @@ if not autoLogged then OpenLoader() end
 -- trusted, so the window is anchored top-left at a size that fits inside
 -- the smaller of the two rectangles.  That is visible whichever one is
 -- the real one.  When they agree, the normal centred layout is restored.
+--
+-- One failure is not geometry at all.  Device logs show a container whose
+-- GUI viewport does not even match the camera *width* (gui=335x834 vs
+-- view=375x747): every property reads healthy, the frame has the size and
+-- position it was given, and nothing is drawn until the device rotates.
+-- Two causes fit that, and one action covers both - the ScreenGui is
+-- still registered against a surface the renderer stopped drawing, or a
+-- HUD created after it is drawn on top.  Re-parenting the same instances
+-- forces a fresh registration and moves the container last in the child
+-- list.  It is not a rebuild, so nothing already typed is lost.  CoreGui
+-- is deliberately not used: build d249221 parented there and drew nothing
+-- on this client.
+local _punkContainer = nil
+
+function _punkRebindContainer(rebind)
+    if _punkContainer then return _punkContainer end
+
+    _punkContainer = "player"
+
+    if not rebind or not ScreenGui.Parent then return _punkContainer end
+
+    local own_parent = ScreenGui.Parent
+
+    local ok = pcall(function()
+        ScreenGui.Parent = nil
+        ScreenGui.Parent = own_parent
+        ScreenGui.Enabled = false
+        ScreenGui.Enabled = true
+    end)
+
+    _punkContainer = ok and "player rebound" or "player"
+
+    return _punkContainer
+end
+
 function _punkApplyLayout()
     local g = ScreenGui.AbsoluteSize
     local vx, vy = nil, nil
@@ -826,7 +861,12 @@ function _punkApplyLayout()
         return "scale", "no-camera"
     end
 
-    local consistent = math.abs(g.X - vx) <= 8 and math.abs(g.Y - vy) <= 8
+    -- A width mismatch means the container is bound to a different
+    -- surface, not merely inset by the topbar; that is the case that has
+    -- to be rebound.  A height-only difference is normal and draws fine.
+    local width_match = math.abs(g.X - vx) <= 8
+    local height_match = math.abs(g.Y - vy) <= 8
+    local consistent = width_match and height_match
 
     local mode = consistent and "scale" or "safe"
 
@@ -846,6 +886,12 @@ function _punkApplyLayout()
         return "scale", "gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
     end
 
+    local container = _punkRebindContainer(not width_match)
+
+    -- A rebind can resize the container, so measure again before
+    -- placing the window inside it.
+    g = ScreenGui.AbsoluteSize
+
     local width = math.max(220, math.min(g.X, vx) - 24)
     local height = math.max(140, math.min(g.Y, vy) * 0.45)
 
@@ -853,7 +899,8 @@ function _punkApplyLayout()
     MainFrame.Size = UDim2.new(0, width, 0, height)
     MainFrame.Position = UDim2.new(0, 12, 0, 12)
 
-    return "safe", "gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
+    return "safe", "container=" .. container
+        .. " gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
         .. " view=" .. tostring(vx) .. "x" .. tostring(vy)
 end
 
@@ -894,8 +941,13 @@ task.delay(15, function()
         end)
         return "parent=" .. tostring(ScreenGui.Parent and ScreenGui.Parent:GetFullName())
             .. " enabled=" .. tostring(ScreenGui.Enabled)
+            .. " container=" .. tostring(_punkContainer)
             .. " gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
             .. " view=" .. tostring(vx) .. "x" .. tostring(vy)
+            .. " frame=" .. tostring(MainFrame.AbsoluteSize.X) .. "x"
+                .. tostring(MainFrame.AbsoluteSize.Y)
+            .. " at=" .. tostring(MainFrame.AbsolutePosition.X) .. ","
+                .. tostring(MainFrame.AbsolutePosition.Y)
             .. " visible=" .. tostring(MainFrame.Visible)
     end)
     print("[PunkX] loader: window state (15s) "
@@ -932,6 +984,7 @@ task.delay(1, function()
 
         return "parent=" .. tostring(ScreenGui.Parent and ScreenGui.Parent:GetFullName())
             .. " enabled=" .. tostring(ScreenGui.Enabled)
+            .. " container=" .. tostring(_punkContainer)
             .. " display=" .. tostring(ScreenGui.DisplayOrder)
             .. " gui=" .. tostring(ScreenGui.AbsoluteSize.X) .. "x" .. tostring(ScreenGui.AbsoluteSize.Y)
             .. " view=" .. tostring(view_x) .. "x" .. tostring(view_y)
