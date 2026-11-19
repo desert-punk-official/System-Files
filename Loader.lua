@@ -2,7 +2,7 @@
 -- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
 -- Deployment stamp.  Every deployed file prints this tag, so one log
 -- line answers "is the file I uploaded the file that ran?".
-print("[PunkX] release 2026-11-18a loader")
+print("[PunkX] release 2026-11-19a loader")
 
 -- ⚠️ CRITICAL: Wait for game to fully load
 repeat task.wait(0.5) until game:IsLoaded()
@@ -25,7 +25,7 @@ do
         return ok and size ~= nil and size.X > size.Y
     end
 
-    for _ = 1, 80 do
+    for _ = 1, 240 do
         if viewport_is_landscape() then break end
         task.wait(0.25)
     end
@@ -816,19 +816,16 @@ task.spawn(function()
     while ScreenGui.Parent ~= nil and rebinds < 5 do
         task.wait(0.75)
 
-        local gui_ok, gui_portrait = pcall(function()
-            return ScreenGui.AbsoluteSize.X < ScreenGui.AbsoluteSize.Y
-        end)
-
-        local live_landscape = false
-        pcall(function()
+        local gui_ok, mismatch = pcall(function()
+            local g = ScreenGui.AbsoluteSize
             local ws = game:GetService("Workspace")
             local cam = ws and ws.CurrentCamera
-            live_landscape = cam ~= nil
-                and cam.ViewportSize.X > cam.ViewportSize.Y
+            if not cam then return false end
+            local v = cam.ViewportSize
+            return math.abs(g.X - v.X) > 8 or math.abs(g.Y - v.Y) > 8
         end)
 
-        if gui_ok and gui_portrait and live_landscape then
+        if gui_ok and mismatch then
             local fresh = Instance.new("ScreenGui")
             fresh.Name = GUI_RANDOM_NAME
             fresh.ResetOnSpawn = false
@@ -865,19 +862,16 @@ task.delay(1, function()
         -- the camera is landscape, move the frame into a fresh ScreenGui:
         -- a new container binds to the live viewport.  ScreenGui is an
         -- upvalue, so every closure below sees the replacement.
-        local gui_ok, gui_portrait = pcall(function()
-            return ScreenGui.AbsoluteSize.X < ScreenGui.AbsoluteSize.Y
-        end)
-
-        local live_landscape = false
-        pcall(function()
+        local gui_ok, mismatch = pcall(function()
+            local g = ScreenGui.AbsoluteSize
             local ws = game:GetService("Workspace")
             local cam = ws and ws.CurrentCamera
-            live_landscape = cam ~= nil
-                and cam.ViewportSize.X > cam.ViewportSize.Y
+            if not cam then return false end
+            local v = cam.ViewportSize
+            return math.abs(g.X - v.X) > 8 or math.abs(g.Y - v.Y) > 8
         end)
 
-        if gui_ok and gui_portrait and live_landscape then
+        if gui_ok and mismatch then
             local fresh = Instance.new("ScreenGui")
             fresh.Name = GUI_RANDOM_NAME
             fresh.ResetOnSpawn = false
