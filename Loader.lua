@@ -2,7 +2,7 @@
 -- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
 -- Deployment stamp.  Every deployed file prints this tag, so one log
 -- line answers "is the file I uploaded the file that ran?".
-print("[PunkX] release 2026-11-19l loader")
+print("[PunkX] release 2026-11-19m loader")
 
 -- ⚠️ CRITICAL: Wait for game to fully load
 -- No pre-build wait.  on_game_loaded already means the game is loaded,
@@ -899,6 +899,7 @@ end
 -- is applied unless it beats the current rectangle, and the original
 -- is restored otherwise.
 local _punkInsetsTried = false
+local _punkFlipped = false
 
 function _punkMatchViewport(vx, vy)
     if _punkInsetsTried then return nil end
@@ -1013,6 +1014,21 @@ function _punkApplyLayout()
     local inset = _punkMatchViewport(vx, vy)
 
     g = ScreenGui.AbsoluteSize
+
+    -- Tier 1 failed if the rectangle still is not the viewport: no
+    -- ScreenInsets value can reach it on this client (device: the best
+    -- candidate was 375.38x834.46 against a 375.38x747.46 viewport).  The
+    -- one thing that has ever reconciled them is a real configuration
+    -- change, which is what rotating the phone by hand does.  The native
+    -- side performs that flip on the UI thread, once, and only in this
+    -- state.
+    if not _punkFlipped and force_landscape
+        and (math.abs(g.X - vx) > 2 or math.abs(g.Y - vy) > 2) then
+        _punkFlipped = true
+        local ok, status = pcall(force_landscape)
+        print("[PunkX] loader: orientation flip status="
+            .. tostring(ok and status or "call failed"))
+    end
 
     local width = math.max(220, math.min(g.X, vx) - 24)
     local height = math.max(140, math.min(g.Y, vy) * 0.45)
