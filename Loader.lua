@@ -2,7 +2,7 @@
 -- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
 -- Deployment stamp.  Every deployed file prints this tag, so one log
 -- line answers "is the file I uploaded the file that ran?".
-print("[PunkX] release 2026-11-19q loader")
+print("[PunkX] release 2026-11-19r loader")
 
 -- ⚠️ CRITICAL: Wait for game to fully load
 -- No pre-build wait.  on_game_loaded already means the game is loaded,
@@ -995,6 +995,14 @@ function _punkMatchViewport(vx, vy)
 end
 
 function _punkApplyLayout()
+    -- Fixed layout, as the v22.2 loader had.  The auto-fit / auto-flip
+    -- experiments moved a working window and, worse, fired three flips in
+    -- one second (os.clock is CPU time here, so the spacing gate never
+    -- held) and left the client in a mixed rectangle.  Nothing in this
+    -- function writes geometry any more; OpenLoader's centred tween owns
+    -- the placement and the user can drag it.
+    do return nil, "fixed layout" end
+
     local g = ScreenGui.AbsoluteSize
 
     -- AbsoluteSize is only meaningful once the container has been laid
@@ -1122,7 +1130,7 @@ game:GetService("RunService").Heartbeat:Connect(function()
         print("[PunkX] loader: window layer " .. tostring(top))
     end
 
-    _punkWatchFlip()
+    -- automatic flip removed
 
     local new_mode, detail = _punkApplyLayout()
 
@@ -1143,7 +1151,7 @@ do
         print("[PunkX] loader: window layer " .. tostring(top))
     end
 
-    _punkWatchFlip()
+    -- automatic flip removed
 
     local mode, detail = _punkApplyLayout()
 
