@@ -2,7 +2,7 @@
 -- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
 -- Deployment stamp.  Every deployed file prints this tag, so one log
 -- line answers "is the file I uploaded the file that ran?".
-print("[PunkX] release 2026-11-19f loader")
+print("[PunkX] release 2026-11-19i loader")
 
 -- ⚠️ CRITICAL: Wait for game to fully load
 repeat task.wait(0.5) until game:IsLoaded()
@@ -340,6 +340,14 @@ ScreenGui.Name = GUI_RANDOM_NAME -- Randomized Name
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.IgnoreGuiInset = true
+-- Ask the engine for landscape while this container is visible.  In the
+-- failing games the window surface is already landscape while the
+-- engine's GUI space is portrait; this is the one orientation lever a
+-- script owns, and it is applied to our own ScreenGui only - never to
+-- the game's, which would fight the game's own layout.
+pcall(function()
+    ScreenGui.ScreenOrientation = Enum.ScreenOrientation.LandscapeSensor
+end)
 ScreenGui.Enabled = true
 -- Above the game's own ScreenGuis: a full-screen loading/menu GUI at a
 -- higher DisplayOrder would otherwise draw on top of the window, which
@@ -813,48 +821,32 @@ if not autoLogged then OpenLoader() end
 -- the smaller of the two rectangles.  That is visible whichever one is
 -- the real one.  When they agree, the normal centred layout is restored.
 --
--- Decisive device evidence: the *same* geometry (gui=375.38x794.46,
--- view=375.38x747.46, frame 351x336 at 12,12, visible=true) drew the
--- window in one game and nothing at all in another.  So geometry,
--- rotation and the parent are not the cause: in the failing games a
--- ScreenGui is drawn over the window.  DisplayOrder only orders
--- siblings inside PlayerGui, so a game that uses an equal or higher
--- order wins no matter where our frame is.  _punkTopLayer keeps the
--- container strictly above every sibling, and only raises the order
--- when something actually outranks it.
+-- Decisive device evidence, from three runs of the same release:
+--   drawn     gui=375.38x794.46  view=375.38x747.46
+--   not drawn gui=375.38x834.46  view=375.38x747.46
+--   not drawn gui=335.38x834.46  view=375.38x747.46
+-- and drawn again wherever gui == view (754.46x375.38).  The window is
+-- 351x336 at 12,12 in every one of them, so the frame, the parent and the
+-- anchoring are not what differs - the ScreenGui's own rectangle is.
+-- 794 = 747 + the topbar; 834 = the full screen including the navigation
+-- inset.  When the client hands out the full-screen rectangle the layer
+-- is laid out for a screen the renderer is not compositing, and nothing
+-- inside it is ever drawn.
 --
--- Two smaller failures are handled here as well: a GUI viewport that
--- lags the camera (gui=335x834 vs view=375x747) is refreshed through
--- ScreenInsets, and a container registered against that stale surface is
--- re-parented once.  Neither rebuilds anything, so nothing typed is
--- lost.  CoreGui is deliberately not used: build d249221 parented there
--- and drew nothing on this client.
-local _punkContainer = nil
+-- So the container rectangle is what differs, but it cannot be corrected
+-- from Lua: writing ScreenInsets moved a working 375.38x794.46 container
+-- to 375.38x834.46 and stopped the renderer drawing it (release f), and
+-- no fixed threshold can tell those two apart on a phone, a tablet and
+-- an emulator at once.  The normalisation belongs in the client, so this
+-- script keeps the rectangle the client chose and places the window
+-- inside it.
+--
+-- _punkTopLayer covers the other failure class: a ScreenGui is only
+-- ordered against its siblings, so a game HUD at an equal or higher
+-- DisplayOrder draws over the window no matter where the frame is.  It
+-- raises the order only when something actually outranks us.
 
--- ScreenInsets is what pins a ScreenGui to the device rectangle.  A
--- viewport that lags the camera means the client is still laying GUIs
--- out for a screen it no longer has, so re-applying it forces a fresh
--- layout.  Unsupported fields are ignored by pcall; the before/after
--- sizes are logged so the effect is visible instead of guessed.
-local _punkInsetsDone = false
-
-function _punkRefreshInsets()
-    if _punkInsetsDone then return nil end
-    _punkInsetsDone = true
-
-    local before = ScreenGui.AbsoluteSize
-
-    pcall(function() ScreenGui.ScreenInsets = Enum.ScreenInsets.None end)
-    pcall(function()
-        ScreenGui.SafeAreaCompatibility = Enum.SafeAreaCompatibility.None
-    end)
-    pcall(function() ScreenGui.ClipToDeviceSafeArea = false end)
-
-    local after = ScreenGui.AbsoluteSize
-
-    return "insets " .. tostring(before.X) .. "x" .. tostring(before.Y)
-        .. " -> " .. tostring(after.X) .. "x" .. tostring(after.Y)
-end
+local _punkResynced = false
 
 -- Make the container the top sibling in PlayerGui.  A ScreenGui is only
 -- ordered against its siblings, so this is the only thing that decides
@@ -905,28 +897,16 @@ function _punkTopLayer()
     return nil
 end
 
--- Re-parent the same instances once (never a rebuild): the container may
--- still be registered against a surface the renderer has stopped drawing,
--- and being last in the child list also settles a DisplayOrder tie.
-function _punkRebindContainer(rebind)
-    if _punkContainer then return _punkContainer end
-
-    _punkContainer = "player"
-
-    if not rebind or not ScreenGui.Parent then return _punkContainer end
-
-    local own_parent = ScreenGui.Parent
-
-    local ok = pcall(function()
-        ScreenGui.Parent = nil
-        ScreenGui.Parent = own_parent
-        ScreenGui.Enabled = false
-        ScreenGui.Enabled = true
+-- PlayerGui.CurrentScreenOrientation is what the engine is actually
+-- using; it is the readback that says whether the landscape request
+-- above took effect, so both state lines report it.
+function _punkOrientationText()
+    local value = "?"
+    pcall(function()
+        local pg = ScreenGui.Parent
+        if pg then value = tostring(pg.CurrentScreenOrientation) end
     end)
-
-    _punkContainer = ok and "player rebound" or "player"
-
-    return _punkContainer
+    return value
 end
 
 function _punkApplyLayout()
@@ -951,9 +931,9 @@ function _punkApplyLayout()
         return "scale", "no-camera"
     end
 
-    -- A width mismatch means the container is bound to a different
-    -- surface, not merely inset by the topbar; that is the case that has
-    -- to be rebound.  A height-only difference is normal and draws fine.
+    -- Anything but an exact match is the safe layout: the container is not
+    -- the camera's rectangle, so the frame is anchored top-left inside the
+    -- smaller of the two and cannot land outside either one.
     local width_match = math.abs(g.X - vx) <= 8
     local height_match = math.abs(g.Y - vy) <= 8
     local consistent = width_match and height_match
@@ -976,16 +956,37 @@ function _punkApplyLayout()
         return "scale", "gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
     end
 
-    -- Refresh the safe-area layout first: if it was pinned to a screen the
-    -- client no longer has, this makes AbsoluteSize follow the real one
-    -- before anything is measured.
-    local insets = _punkRefreshInsets()
-
-    local container = _punkRebindContainer(not width_match)
-
-    -- A rebind can resize the container, so measure again before
-    -- placing the window inside it.
+    -- The client's own container rectangle is kept.  Writing ScreenInsets
+    -- moved a working 375.38x794.46 container to 375.38x834.46 and stopped
+    -- the renderer drawing it (device, release f).  There is also no
+    -- device-independent threshold that tells 794 from 834: the difference
+    -- is 6.3% against 11.6% of the viewport, so a phone, a tablet and an
+    -- emulator would each need a different constant.  Normalising the
+    -- client's rectangle belongs in the client, not in this script.
     g = ScreenGui.AbsoluteSize
+
+    -- When the container is laid out for a rectangle the renderer is not
+    -- compositing, no property change can bring the layer back.  One real
+    -- surface event can, because the engine then recomputes its viewport
+    -- from the live window - the same thing a device rotation does.  Fire
+    -- it once per session, and only when the container is off by more
+    -- than a bar-sized inset (a normal topbar is ~6% of the viewport, the
+    -- broken extra is ~12%).  The threshold only decides whether to send
+    -- the harmless resync; it never moves anything.
+    if not _punkResynced then
+        _punkResynced = true
+
+        local width_off = math.abs(g.X - vx) > vx * 0.015
+        local surplus = g.Y - vy
+
+        if width_off or surplus > vy * 0.10 then
+            if resync_viewport then
+                local ok, requested = pcall(resync_viewport)
+                print("[PunkX] loader: surface resync "
+                    .. ((ok and requested) and "requested" or "unavailable"))
+            end
+        end
+    end
 
     local width = math.max(220, math.min(g.X, vx) - 24)
     local height = math.max(140, math.min(g.Y, vy) * 0.45)
@@ -994,11 +995,23 @@ function _punkApplyLayout()
     MainFrame.Size = UDim2.new(0, width, 0, height)
     MainFrame.Position = UDim2.new(0, 12, 0, 12)
 
-    return "safe", "container=" .. container
-        .. " gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
+    return "safe", "gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
         .. " view=" .. tostring(vx) .. "x" .. tostring(vy)
-        .. (insets and (" " .. insets) or "")
 end
+
+-- Re-place immediately when the camera viewport changes (rotation or a
+-- late surface resize) instead of waiting for the next poll.  The mode
+-- latch is cleared so the same mode name is applied again against the
+-- new rectangle.
+pcall(function()
+    local cam = game:GetService("Workspace").CurrentCamera
+    if cam then
+        cam:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+            _punkLayoutMode = nil
+            _punkApplyLayout()
+        end)
+    end
+end)
 
 -- Watchdog on RunService.Heartbeat rather than task.wait: a generation
 -- that is joined instantly can leave task.wait continuations late, and a
@@ -1078,9 +1091,9 @@ task.delay(15, function()
         end)
         return "parent=" .. tostring(ScreenGui.Parent and ScreenGui.Parent:GetFullName())
             .. " enabled=" .. tostring(ScreenGui.Enabled)
-            .. " container=" .. tostring(_punkContainer)
             .. " display=" .. tostring(ScreenGui.DisplayOrder)
             .. " siblings=" .. tostring(siblings) .. "/" .. tostring(top_order)
+            .. " orient=" .. _punkOrientationText()
             .. " gui=" .. tostring(g.X) .. "x" .. tostring(g.Y)
             .. " view=" .. tostring(vx) .. "x" .. tostring(vy)
             .. " frame=" .. tostring(MainFrame.AbsoluteSize.X) .. "x"
@@ -1125,8 +1138,8 @@ task.delay(1, function()
 
         return "parent=" .. tostring(ScreenGui.Parent and ScreenGui.Parent:GetFullName())
             .. " enabled=" .. tostring(ScreenGui.Enabled)
-            .. " container=" .. tostring(_punkContainer)
             .. " display=" .. tostring(ScreenGui.DisplayOrder)
+            .. " orient=" .. _punkOrientationText()
             .. " gui=" .. tostring(ScreenGui.AbsoluteSize.X) .. "x" .. tostring(ScreenGui.AbsoluteSize.Y)
             .. " view=" .. tostring(view_x) .. "x" .. tostring(view_y)
             .. " frame=" .. tostring(MainFrame.AbsoluteSize.X) .. "x" .. tostring(MainFrame.AbsoluteSize.Y)
