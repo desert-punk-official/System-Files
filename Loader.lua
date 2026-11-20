@@ -2,7 +2,7 @@
 -- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
 -- Deployment stamp.  Every deployed file prints this tag, so one log
 -- line answers "is the file I uploaded the file that ran?".
-print("[PunkX] release 2026-11-19s loader")
+print("[PunkX] release 2026-11-19t loader")
 
 -- ⚠️ CRITICAL: Wait for game to fully load
 -- No pre-build wait.  on_game_loaded already means the game is loaded,
@@ -910,7 +910,7 @@ local _punkApplied = nil
 -- attempts, three seconds apart, and only while the container still
 -- does not match the camera.
 function _punkWatchFlip()
-    if not force_landscape then return end
+    if not resync_viewport then return end
     if _punkFlips >= 3 then return end
 
     local g = ScreenGui.AbsoluteSize
@@ -935,8 +935,8 @@ function _punkWatchFlip()
     _punkFlips = _punkFlips + 1
     _punkFlipAt = now
 
-    local ok, status = pcall(force_landscape)
-    print("[PunkX] loader: orientation flip " .. tostring(_punkFlips)
+    local ok, status = pcall(resync_viewport)
+    print("[PunkX] loader: surface resync " .. tostring(_punkFlips)
         .. " status=" .. tostring(ok and status or "call failed"))
 end
 
