@@ -2,7 +2,7 @@
 -- Version: 22.2 (Strict Stealth / BAC-7205 + 82010 Fixed)
 -- Deployment stamp.  Every deployed file prints this tag, so one log
 -- line answers "is the file I uploaded the file that ran?".
-print("[PunkX] release 2026-11-19r loader")
+print("[PunkX] release 2026-11-19s loader")
 
 -- ⚠️ CRITICAL: Wait for game to fully load
 -- No pre-build wait.  on_game_loaded already means the game is loaded,
@@ -928,7 +928,7 @@ function _punkWatchFlip()
 
     if math.abs(g.X - vx) <= 2 and math.abs(g.Y - vy) <= 2 then return end
 
-    local now = os.clock()
+    local now = os.time()
 
     if now - _punkFlipAt < 3 then return end
 
@@ -1115,7 +1115,7 @@ local _punkLastTick = 0
 local _punkWatchMode = nil
 
 game:GetService("RunService").Heartbeat:Connect(function()
-    local now = os.clock()
+    local now = os.time()
 
     if now - _punkLastTick < 1 then return end
     _punkLastTick = now
@@ -1131,6 +1131,8 @@ game:GetService("RunService").Heartbeat:Connect(function()
     end
 
     -- automatic flip removed
+
+    _punkWatchFlip()
 
     local new_mode, detail = _punkApplyLayout()
 
@@ -1152,6 +1154,8 @@ do
     end
 
     -- automatic flip removed
+
+    _punkWatchFlip()
 
     local mode, detail = _punkApplyLayout()
 
