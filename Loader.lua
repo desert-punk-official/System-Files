@@ -203,7 +203,9 @@ local function ShowTamperDialog()
     local camera = workspace.CurrentCamera
     local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
     local uiScale = Instance.new("UIScale", gui)
-    uiScale.Scale = math.clamp(math.min(viewport.X, viewport.Y) / 500, 0.85, 1.8)
+    local sx = (0.60 * viewport.X) / 420
+    local sy = (0.62 * viewport.Y) / 260
+    uiScale.Scale = math.clamp(math.min(sx, sy), 0.85, 3.2)
 
     local dim = Instance.new("TextButton")
     dim.Size = UDim2.fromScale(1, 1)
@@ -230,7 +232,7 @@ local function ShowTamperDialog()
     title.BackgroundTransparency = 1
     title.Text = "Disconnected"
     title.Font = Enum.Font.SourceSansBold
-    title.TextSize = 24
+    title.TextSize = 30
     title.TextColor3 = Color3.new(1, 1, 1)
     title.ZIndex = 3
     title.Parent = card
@@ -244,26 +246,26 @@ local function ShowTamperDialog()
     line.Parent = card
 
     local body = Instance.new("TextLabel")
-    body.Size = UDim2.new(0.86, 0, 0, 92)
-    body.Position = UDim2.new(0.07, 0, 0, 66)
+    body.Size = UDim2.new(0.86, 0, 0, 132)
+    body.Position = UDim2.new(0.07, 0, 0, 64)
     body.BackgroundTransparency = 1
     body.Text = "Tampering detected. Stop modifying Punk X and reinstall the official build.\n(Error Code: 403)"
     body.Font = Enum.Font.SourceSans
-    body.TextSize = 16
+    body.TextSize = 20
     body.TextWrapped = true
-    body.TextYAlignment = Enum.TextYAlignment.Top
+    body.TextYAlignment = Enum.TextYAlignment.Center
     body.TextColor3 = Color3.new(1, 1, 1)
     body.ZIndex = 3
     body.Parent = card
 
     local leave = Instance.new("TextButton")
-    leave.Size = UDim2.new(0.86, 0, 0, 36)
-    leave.Position = UDim2.new(0.07, 0, 1, -52)
+    leave.Size = UDim2.new(0.86, 0, 0, 40)
+    leave.Position = UDim2.new(0.07, 0, 1, -56)
     leave.BackgroundColor3 = Color3.new(1, 1, 1)
     leave.BorderSizePixel = 0
     leave.Text = "Leave"
     leave.Font = Enum.Font.SourceSans
-    leave.TextSize = 18
+    leave.TextSize = 22
     leave.TextColor3 = Color3.fromRGB(30, 30, 30)
     leave.AutoButtonColor = true
     leave.ZIndex = 3
