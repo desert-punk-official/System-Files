@@ -176,6 +176,123 @@ if isfolder and not isfolder("Punk-X-Files") then
     makefolder("Punk-X-Files")
 end
 
+-- // INTEGRITY GATE //
+-- The native side stays locked when the APK signature or debug checks fail.
+-- Show the same full-screen modal Roblox uses instead of the key window/UI.
+local function ShowTamperDialog()
+    local parent = GetSecureParent()
+    local old = parent:FindFirstChild(GUI_RANDOM_NAME)
+
+    if old then
+        old:Destroy()
+    end
+
+    local blur = Instance.new("BlurEffect")
+    blur.Name = "PxBlur"
+    blur.Size = 24
+    blur.Parent = game:GetService("Lighting")
+
+    local gui = Instance.new("ScreenGui")
+    gui.Name = GUI_RANDOM_NAME
+    gui.IgnoreGuiInset = true
+    gui.ResetOnSpawn = false
+    gui.DisplayOrder = 2147483647
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.Parent = parent
+
+    local camera = workspace.CurrentCamera
+    local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
+    local uiScale = Instance.new("UIScale", gui)
+    uiScale.Scale = math.clamp(math.min(viewport.X, viewport.Y) / 500, 0.85, 1.8)
+
+    local dim = Instance.new("TextButton")
+    dim.Size = UDim2.fromScale(1, 1)
+    dim.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    dim.BackgroundTransparency = 0.45
+    dim.BorderSizePixel = 0
+    dim.AutoButtonColor = false
+    dim.Text = ""
+    dim.ZIndex = 1
+    dim.Parent = gui
+
+    local card = Instance.new("Frame")
+    card.Size = UDim2.fromOffset(420, 260)
+    card.Position = UDim2.fromScale(0.5, 0.5)
+    card.AnchorPoint = Vector2.new(0.5, 0.5)
+    card.BackgroundColor3 = Color3.fromRGB(75, 75, 75)
+    card.BorderSizePixel = 0
+    card.ZIndex = 2
+    card.Parent = gui
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.Position = UDim2.fromOffset(0, 12)
+    title.BackgroundTransparency = 1
+    title.Text = "Disconnected"
+    title.Font = Enum.Font.SourceSansBold
+    title.TextSize = 24
+    title.TextColor3 = Color3.new(1, 1, 1)
+    title.ZIndex = 3
+    title.Parent = card
+
+    local line = Instance.new("Frame")
+    line.Size = UDim2.new(0.86, 0, 0, 1)
+    line.Position = UDim2.new(0.07, 0, 0, 54)
+    line.BackgroundColor3 = Color3.new(1, 1, 1)
+    line.BorderSizePixel = 0
+    line.ZIndex = 3
+    line.Parent = card
+
+    local body = Instance.new("TextLabel")
+    body.Size = UDim2.new(0.86, 0, 0, 92)
+    body.Position = UDim2.new(0.07, 0, 0, 66)
+    body.BackgroundTransparency = 1
+    body.Text = "Tampering detected. Stop modifying Punk X and reinstall the official build.\n(Error Code: 403)"
+    body.Font = Enum.Font.SourceSans
+    body.TextSize = 16
+    body.TextWrapped = true
+    body.TextYAlignment = Enum.TextYAlignment.Top
+    body.TextColor3 = Color3.new(1, 1, 1)
+    body.ZIndex = 3
+    body.Parent = card
+
+    local leave = Instance.new("TextButton")
+    leave.Size = UDim2.new(0.86, 0, 0, 36)
+    leave.Position = UDim2.new(0.07, 0, 1, -52)
+    leave.BackgroundColor3 = Color3.new(1, 1, 1)
+    leave.BorderSizePixel = 0
+    leave.Text = "Leave"
+    leave.Font = Enum.Font.SourceSans
+    leave.TextSize = 18
+    leave.TextColor3 = Color3.fromRGB(30, 30, 30)
+    leave.AutoButtonColor = true
+    leave.ZIndex = 3
+    leave.Parent = card
+
+    local corner = Instance.new("UICorner", leave)
+    corner.CornerRadius = UDim.new(0, 4)
+
+    leave.MouseButton1Click:Connect(function()
+        pcall(function()
+            gui:Destroy()
+            blur:Destroy()
+        end)
+
+        if __punk_exit then
+            pcall(__punk_exit)
+        end
+    end)
+end
+
+if __punk_integrity then
+    local ok, allowed = pcall(__punk_integrity)
+
+    if not ok or not allowed then
+        ShowTamperDialog()
+        return
+    end
+end
+
 -- // 1. LOAD KEY LIBRARY //
 local success, KeyLib = false, nil
 local authLoaded = false
