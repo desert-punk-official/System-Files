@@ -286,8 +286,12 @@ local function ShowTamperDialog()
     end)
 end
 
-if __punk_integrity then
+local has_integrity = type(__punk_integrity) == "function"
+print("[PunkX] integrity: check=" .. tostring(has_integrity))
+
+if has_integrity then
     local ok, allowed = pcall(__punk_integrity)
+    print("[PunkX] integrity: allowed=" .. tostring(ok and allowed))
 
     if not ok or not allowed then
         ShowTamperDialog()
